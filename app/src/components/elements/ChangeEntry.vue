@@ -12,10 +12,11 @@
       class="flex p-2 font-bold items-center bg-dark-3 border-b border-dark-0"
     >
       <font-awesome-icon fixed-width :icon="icon" />
-      <!-- TODO: Show both file names when it's renamed -->
       <span class="ml-2 text-wht-med">{{ title }}</span>
-      <span class="text-sm text-purple-300 ml-4" v-if="allThreads.length > 0">
-        {{ allThreads.length }}
+      <span
+        class="text-sm text-purple-300 ml-4" 
+        v-if="countUnresolvedThreads > 0">
+        {{ countUnresolvedThreads }}
         <font-awesome-icon icon="comment" size="sm" />
       </span>
       <span class="flex-grow"><!-- spacer --></span>
@@ -361,6 +362,10 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
     const r: Thread[] = this.reviewModule.threadsByFile(this.meta.to, "right");
 
     return [...l, ...r];
+  }
+
+  get countUnresolvedThreads() {
+    return this.allThreads.filter(t => !t.draft && !t.resolved).length;
   }
 
   get additionPct() {

@@ -14,8 +14,9 @@
       <font-awesome-icon fixed-width :icon="icon" />
       <span class="ml-2 text-wht-med">{{ title }}</span>
       <span
-        class="text-sm text-purple-300 ml-4" 
-        v-if="countUnresolvedThreads > 0">
+        class="text-sm text-purple-300 ml-4"
+        v-if="countUnresolvedThreads > 0"
+      >
         {{ countUnresolvedThreads }}
         <font-awesome-icon icon="comment" size="sm" />
       </span>

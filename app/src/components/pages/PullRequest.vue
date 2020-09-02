@@ -299,10 +299,6 @@ export default class PullRequest extends Mixins(EventEnhancer)
   public prChanges: PullRequestChanges | null = null;
   public meta!: ReviewMetadata;
 
-  // Diff start/end
-  public diffBase: string | null = null;
-  public diffHead: string | null = null;
-
   public activeFileIndex = -1;
   public threadFilter = "all";
 
@@ -320,6 +316,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
       number: Number.parseInt(params.number)
     };
 
+    // TODO: This group of actions should be more atomic
     // TODO: Call this again on base change?
     this.reviewModule.initializeReview(this.meta);
     this.prData = await this.github.getPullRequest(
@@ -327,12 +324,10 @@ export default class PullRequest extends Mixins(EventEnhancer)
       this.meta.repo,
       this.meta.number
     );
-
     this.reviewModule.setBaseAndHead({
-      base: this.baseSha(),
-      head: this.headSha()
+      base: this.prData!.pr.base.ref,
+      head: this.prData!.pr.head.ref
     });
-
     this.prChanges = this.renderPullRequest(this.prData);
 
     this.uiModule.endLoading();
@@ -353,7 +348,10 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   public handleEvent(e: Partial<AddCommentEvent>) {
     console.log("PullRequest#handleEvent");
-    e.sha = e.side === "left" ? this.baseSha() : this.headSha();
+    e.sha =
+      e.side === "left"
+        ? this.reviewModule.reviewState.base
+        : this.reviewModule.reviewState.head;
 
     const finalEvent = e as AddCommentEvent;
     const user: CommentUser = {
@@ -385,45 +383,35 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   // TODO: The head/base state should probably be in the Vuex module
   public async onBaseSelected(base: string) {
-    this.diffBase = base;
-    this.reloadDiff();
+    this.reloadDiff(base, this.reviewModule.reviewState.head);
   }
 
   public async onHeadSelected(head: string) {
-    this.diffHead = head;
-    this.reloadDiff();
+    this.reloadDiff(this.reviewModule.reviewState.base, head);
   }
 
   public isFromFork() {
     return this.prData!.pr.head.user.login !== this.prData!.pr.base.user.login;
   }
 
-  public headSha() {
-    return this.diffHead || this.prData!.pr.head.ref;
-  }
-
-  public baseSha() {
-    return this.diffBase || this.prData!.pr.base.ref;
-  }
-
   // TODO: This whole thing doesn't work for forks!
-  public async reloadDiff() {
+  public async reloadDiff(base: string, head: string) {
     this.uiModule.beginLoading();
     this.collapseAll();
 
     const diffs = await this.github.getDiff(
       this.meta.owner,
       this.meta.repo,
-      this.baseSha(),
-      this.headSha()
+      base,
+      head
     );
 
     this.prData!.diffs = freezeArray(diffs);
     this.prChanges = this.renderPullRequest(this.prData!);
 
     this.reviewModule.setBaseAndHead({
-      base: this.baseSha(),
-      head: this.headSha()
+      base,
+      head
     });
 
     this.uiModule.endLoading();

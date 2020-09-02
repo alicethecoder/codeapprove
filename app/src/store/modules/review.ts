@@ -20,13 +20,14 @@ import { NEW_COMMENT_EVENT, AddCommentEvent } from "../../plugins/events";
   name: "review"
 })
 export default class ReviewModule extends VuexModule {
+  // UI State related to the review (not persisted)
   public reviewState = {
     base: "unknown",
     head: "unknown"
   };
 
+  // The review itself
   public review: Review = {
-    // TODO: Real
     metadata: {
       owner: "unknown",
       repo: "unknown",
@@ -73,6 +74,7 @@ export default class ReviewModule extends VuexModule {
   @Mutation
   public initializeReview(metadata: ReviewMetadata) {
     // TODO: Should this be an action which pulls down information?
+    // TODO: Should this set up reviewState
     this.review = {
       metadata,
       reviewers: {},

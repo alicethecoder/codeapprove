@@ -99,10 +99,10 @@ export default class ReviewModule extends VuexModule {
   }
 
   @Mutation
-  public setThreadResolved(opts: { threadId: string; resolved: boolean }) {
+  public setThreadPendingState(opts: { threadId: string; resolved: boolean }) {
     const thread = this.review.threads.find(x => x.id === opts.threadId);
     if (thread) {
-      thread.resolved = opts.resolved;
+      thread.pendingResolved = opts.resolved;
     }
   }
 
@@ -110,6 +110,7 @@ export default class ReviewModule extends VuexModule {
   public removeDraftStatus() {
     for (const thread of this.review.threads) {
       thread.draft = false;
+      thread.resolved = thread.pendingResolved;
     }
 
     for (const comment of this.review.comments) {
@@ -141,6 +142,7 @@ export default class ReviewModule extends VuexModule {
     const thread: Thread = {
       id: uuid.v4(),
       resolved: false,
+      pendingResolved: false,
       draft: true,
       ...opts.args,
       ...opts.ca
@@ -175,7 +177,7 @@ export default class ReviewModule extends VuexModule {
   }
 
   @Action
-  public async sendDraftComments(opts: { approve: boolean }) {
+  public async sendDraftComments() {
     // TODO: Network and shit
     this.context.commit("removeDraftStatus");
   }
@@ -216,7 +218,7 @@ export default class ReviewModule extends VuexModule {
 
     // If resolution state specified, set that
     if (e.resolve != undefined) {
-      this.context.commit("setThreadResolved", {
+      this.context.commit("setThreadPendingState", {
         threadId: thread.id,
         resolved: e.resolve
       });

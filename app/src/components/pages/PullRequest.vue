@@ -55,7 +55,6 @@
       <span class="flex-grow"><!-- spacer --></span>
       <!-- TODO: Discard is unimplemented -->
       <button class="btn btn-red ml-2">Discard</button>
-      <!-- TODO: This should not unset approval if already approved -->
       <button class="btn btn-blue ml-2" @click.prevent="sendDrafts(false)">
         Send
       </button>
@@ -363,8 +362,18 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   public async sendDrafts(approve: boolean) {
-    this.setMyApproval(approve);
-    await this.reviewModule.sendDraftComments({ approve });
+    const me = this.authModule.assertUser.username;
+    const isReviewer = this.reviewModule.review.reviewers[me] !== undefined;
+
+    if (isReviewer && approve) {
+      // Moving from pending to approved
+      this.setMyApproval(true);
+    } else if (!isReviewer) {
+      // Moving from not-reviewed to pending
+      this.setMyApproval(false);
+    }
+
+    await this.reviewModule.sendDraftComments();
   }
 
   public onReviewerSelected(event: { login: string }) {
@@ -596,9 +605,8 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   get numUnresolvedThreads() {
-    // TODO: Draft comments affect this right now, they should not
     const unresolved: Thread[] = this.reviewModule.review.threads.filter(
-      x => !x.resolved
+      x => !x.draft && !x.resolved
     );
     return unresolved.length;
   }

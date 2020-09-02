@@ -28,6 +28,7 @@ export interface Thread extends ThreadArgs, ThreadContentArgs {
   id: string;
   draft: boolean;
   resolved: boolean;
+  pendingResolved: boolean;
 }
 
 export interface CommentUser {

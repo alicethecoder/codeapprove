@@ -21,7 +21,7 @@
       <ul
         v-if="showDropdown"
         v-click-outside="() => (showDropdown = false)"
-        class="dropdown absolute mt-2 rounded dark-shadow border border-dark-0 bg-dark-3 rounded whitespace-no-wrap text-md text-white-brt"
+        class="dropdown absolute mt-2 rounded dark-shadow border border-dark-0 bg-dark-3 whitespace-no-wrap text-md text-white-brt"
       >
         <li class="block px-4 py-2 text-wht-brt">{{ username }}</li>
         <li class="block px-4 py-2 dropdown-item" @click="toInbox()">

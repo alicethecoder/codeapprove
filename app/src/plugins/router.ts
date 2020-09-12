@@ -10,6 +10,7 @@ import Home from "@/components/pages/Home.vue";
 import SignIn from "@/components/pages/SignIn.vue";
 import PullRequest from "@/components/pages/PullRequest.vue";
 import Inbox from "@/components/pages/Inbox.vue";
+import Pricing from "@/components/pages/Pricing.vue";
 
 import store from "@/store";
 
@@ -36,6 +37,10 @@ const router = new VueRouter({
       meta: {
         auth: true
       }
+    },
+    {
+      path: "/pricing",
+      component: Pricing
     }
   ]
 });

@@ -7,8 +7,13 @@
     </div>
 
     <!-- Page body from router -->
-    <div class="grid grid-cols-12">
+    <div id="body" class="grid grid-cols-12">
       <router-view :key="$route.fullPath" :class="bodyClasses" />
+    </div>
+
+    <!-- Footer -->
+    <div class="w-full">
+      <FooterBar />
     </div>
 
     <!-- Errors -->
@@ -21,6 +26,7 @@ import { Component, Vue, Prop } from "vue-property-decorator";
 import { getModule } from "vuex-module-decorators";
 
 import HeaderBar from "@/components/elements/HeaderBar.vue";
+import FooterBar from "@/components/elements/FooterBar.vue";
 import ProgressBar from "@/components/elements/ProgressBar.vue";
 import MessageStack from "@/components/elements/MessageStack.vue";
 
@@ -34,6 +40,7 @@ import UIModule from "./store/modules/ui";
 @Component({
   components: {
     HeaderBar,
+    FooterBar,
     ProgressBar,
     MessageStack
   }
@@ -96,7 +103,10 @@ body {
   font-family: "Lato", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  padding-bottom: 100px;
+}
+
+#body {
+  min-height: 100vh;
 }
 
 .btn:focus {

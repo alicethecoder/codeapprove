@@ -28,6 +28,7 @@
 <script lang="ts">
 import { Component, Vue, Prop } from "vue-property-decorator";
 import { KeyDescMap } from "../../plugins/hotkeys";
+import * as cookies from "../../plugins/cookies";
 
 @Component
 export default class HotkeyModal extends Vue {
@@ -51,6 +52,7 @@ export default class HotkeyModal extends Vue {
   }
 
   private onShow() {
+    this.$cookies.set(cookies.HOTKEY_MODAL_SHOWN, "true");
     this.show = true;
   }
 

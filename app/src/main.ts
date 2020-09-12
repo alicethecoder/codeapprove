@@ -41,6 +41,11 @@ Vue.config.productionTip = false;
 // Track page visibility
 import * as pagevis from "./plugins/pagevis";
 
+// Cookies
+// https://github.com/cmp-cc/vue-cookie
+import VueCookies from "vue-cookies";
+Vue.use(VueCookies);
+
 // Enable performance tracing in dev
 if (process.env.NODE_ENV !== "production") {
   Vue.config.devtools = true;

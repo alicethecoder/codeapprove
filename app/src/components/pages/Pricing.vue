@@ -25,7 +25,7 @@
           <div class="text-sm">
             {{ p.subUnit }}
           </div>
-          <button class="btn btn-purple mt-8 mb-4">Coming Soon</button>
+          <button class="btn btn-purple mt-8 mb-4">{{ p.cta }}</button>
         </div>
       </div>
     </div>
@@ -51,7 +51,8 @@ export default class Pricing extends Vue {
         "Try CodeApprove on one open-source repository. Free forever, no credit card required.",
       price: 0,
       unit: "month",
-      subUnit: "(free)"
+      subUnit: "(free)",
+      cta: "Sign Up"
     },
     {
       name: "Org",
@@ -59,7 +60,8 @@ export default class Pricing extends Vue {
         "Use CodeApprove on unlimited open-source repositories in a single org. Perfect for large open-source projects.",
       price: 49,
       unit: "org",
-      subUnit: "(per month)"
+      subUnit: "(per month)",
+      cta: "Coming Soon"
     },
     {
       name: "Enterprise",
@@ -67,7 +69,8 @@ export default class Pricing extends Vue {
         "Use CodeApprove on unlimited open-source or private repositories across orgs. Best for large teams.",
       price: 19,
       unit: "user",
-      subUnit: "(per month)"
+      subUnit: "(per month)",
+      cta: "Coming Soon"
     }
   ];
 

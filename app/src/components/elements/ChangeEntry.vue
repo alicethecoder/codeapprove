@@ -11,7 +11,11 @@
       @click="toggle"
       class="flex p-2 font-bold items-center bg-dark-3 border-b border-dark-0"
     >
-      <font-awesome-icon fixed-width :icon="icon" />
+      <font-awesome-icon
+        fixed-width
+        :icon="icon"
+        :class="{ invisible: isBinary }"
+      />
       <span class="ml-2 text-wht-med">{{ title }}</span>
       <span
         class="text-sm text-purple-300 ml-4"
@@ -21,10 +25,12 @@
         <font-awesome-icon icon="comment" size="sm" />
       </span>
       <span class="flex-grow"><!-- spacer --></span>
-      <span class="text-right text-sm text-white-md mr-2">{{
-        meta.additions + meta.deletions
-      }}</span>
+      <span class="text-right text-sm text-white-md mr-2">
+        <span v-if="isBinary">binary</span>
+        <span v-else>{{ meta.additions + meta.deletions }}</span>
+      </span>
       <div
+        v-if="!isBinary"
         class="w-12 rounded overflow-hidden"
         style="line-height: 12px; height: 12px;"
       >
@@ -111,6 +117,7 @@ import {
 } from "../../plugins/diff";
 import { KeyMap, CHANGE_ENTRY_KEY_MAP } from "../../plugins/hotkeys";
 import { freezeArray } from "../../plugins/freeze";
+import { isBinaryFile } from "../../plugins/binary";
 
 @Component({
   components: {
@@ -173,6 +180,10 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
     let totalLength = 0;
     this.chunks.forEach(c => (totalLength += c.pairs.length));
     return totalLength;
+  }
+
+  get isBinary(): boolean {
+    return isBinaryFile(this.meta.from) || isBinaryFile(this.meta.to);
   }
 
   public activate() {

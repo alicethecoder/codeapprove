@@ -3,7 +3,7 @@
  */
 import * as functions from "firebase-functions";
 import { createProbot, Application, Probot } from "probot";
-import { findPrivateKey } from "probot/lib/private-key";
+import { findPrivateKey } from "probot/lib/helpers/get-private-key";
 
 export interface ProbotConfig {
   id: number;
@@ -59,7 +59,7 @@ export function serverless(config: ProbotConfig, appFn: ProbotFn) {
     if (name) {
       try {
         await probot.receive({
-          name,
+          name: name as any,
           id,
           payload: request.body,
         });

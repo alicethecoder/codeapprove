@@ -27,7 +27,7 @@ export function bot(app: Application) {
 
     const owner = context.repo().owner;
     const repo = context.repo().repo;
-    const number = context.issue().number;
+    const number = context.issue().issue_number;
 
     const checkCreateRes = await context.github.checks.create({
       name: "CodeApprove",

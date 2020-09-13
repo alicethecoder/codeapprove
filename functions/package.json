@@ -17,7 +17,7 @@
     "axios-debug-log": "^0.8.0",
     "firebase-admin": "^8.12.1",
     "firebase-functions": "^3.6.1",
-    "probot": "^9.13.0"
+    "probot": "^10.2.0"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",

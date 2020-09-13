@@ -16,10 +16,10 @@ type ProbotFn = (app: Application) => any;
 
 function loadProbot(config: ProbotConfig, appFn: ProbotFn): Probot {
   process.env.PRIVATE_KEY = config.privateKey;
-  const probot = createProbot({
+  const probot = new Probot({
     id: config.id,
     secret: config.webhookSecret,
-    cert: findPrivateKey() || undefined,
+    privateKey: findPrivateKey() || undefined,
   });
   delete process.env.PRIVATE_KEY;
 

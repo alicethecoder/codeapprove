@@ -1,19 +1,21 @@
+import * as functions from "firebase-functions";
+
 const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
 
-export function debug(label: string, ...values: any) {
+export function debug(label: string, value?: any) {
   if (isEmulator) {
-    console.log(label, ...values.map(JSON.stringify));
+    functions.logger.log(label, value);
   }
 }
 
-export function warn(label: string, value: any) {
-  console.warn(label, JSON.stringify(value));
+export function warn(label: string, value?: any) {
+  functions.logger.warn(label, value);
 }
 
-export function secret(label: string, value: any) {
+export function secret(label: string, value?: any) {
   if (isEmulator) {
-    console.log(label, JSON.stringify(value));
+    functions.logger.log(label, value);
   } else {
-    console.log(label, "********");
+    functions.logger.log(label, "********");
   }
 }

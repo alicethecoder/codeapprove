@@ -82,7 +82,7 @@ export const oauth = functions.https.onRequest(async (request, response) => {
   });
 
   const { id, login, avatar_url } = userRes.data;
-  log.debug("Github user:", id, login);
+  log.debug(`Github user: id=${id} login=${login}`);
 
   const userId = `${id}`;
 

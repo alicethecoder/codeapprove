@@ -51,7 +51,7 @@ export function serverless(config: ProbotConfig, appFn: ProbotFn) {
     }
 
     // Do the thing
-    console.log(
+    functions.logger.log(
       `Received event ${name}${
         request.body.action ? "." + request.body.action : ""
       }`

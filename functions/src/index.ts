@@ -39,7 +39,7 @@ export const getGithubToken = functions.https.onCall(async (data, ctx) => {
   }
 
   const user = await users.getUser(ctx.auth.uid);
-  log.debug("uid", ctx.auth.uid);
+  log.info("uid", ctx.auth.uid);
   log.secret("user", user);
 
   const token = await github.exchangeRefreshToken(user.refresh_token);
@@ -65,7 +65,7 @@ export const getGithubToken = functions.https.onCall(async (data, ctx) => {
 export const oauth = functions.https.onRequest(async (request, response) => {
   const code = request.query.code as string;
 
-  log.debug("oauth", "Getting access tokens...");
+  log.info("oauth", "Getting access tokens...");
   const {
     access_token,
     refresh_token,
@@ -82,11 +82,11 @@ export const oauth = functions.https.onRequest(async (request, response) => {
   });
 
   const { id, login, avatar_url } = userRes.data;
-  log.debug(`Github user: id=${id} login=${login}`);
+  log.info(`Github user: id=${id} login=${login}`);
 
   const userId = `${id}`;
 
-  log.debug("Firebase user:", userId);
+  log.info("Firebase user:", userId);
   let userExists = false;
   try {
     await admin.auth().getUser(userId);

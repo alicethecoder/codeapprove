@@ -8,6 +8,10 @@ export function debug(label: string, value?: any) {
   }
 }
 
+export function info(label: string, value?: any) {
+  functions.logger.info(label, value);
+}
+
 export function warn(label: string, value?: any) {
   functions.logger.warn(label, value);
 }

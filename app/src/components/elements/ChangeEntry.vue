@@ -95,10 +95,11 @@ import DiffLine from "@/components/elements/DiffLine.vue";
 import ChunkHeaderBar from "@/components/elements/ChunkHeaderBar.vue";
 import AuthModule from "../../store/modules/auth";
 import ReviewModule from "../../store/modules/review";
-import { Github } from "../../plugins/github";
 import { AddCommentEvent } from "../../plugins/events";
 import { nextRender, makeTopVisible } from "../../plugins/dom";
 import { getFileLang } from "../../plugins/prism";
+
+import { Github } from "../../../../shared/github";
 
 import {
   ThreadPositionArgs,
@@ -116,8 +117,9 @@ import {
   renderLoadedLineChange
 } from "../../plugins/diff";
 import { KeyMap, CHANGE_ENTRY_KEY_MAP } from "../../plugins/hotkeys";
-import { freezeArray } from "../../plugins/freeze";
+import { freezeArray } from "../../../../shared/freeze";
 import { isBinaryFile } from "../../plugins/binary";
+import { config } from "../../plugins/config";
 
 @Component({
   components: {
@@ -139,7 +141,10 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
 
   private authModule = getModule(AuthModule, this.$store);
   private reviewModule = getModule(ReviewModule, this.$store);
-  private github: Github = new Github(this.authModule);
+  private github: Github = new Github(
+    AuthModule.getDelegate(this.authModule),
+    config.github.app_id
+  );
 
   public getThreads(pair: RenderedChangePair): ThreadPair {
     const leftArgs: ThreadPositionArgs = {

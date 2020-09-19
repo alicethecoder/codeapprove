@@ -51,7 +51,8 @@
 import { Component, Vue, Prop, Watch } from "vue-property-decorator";
 import { getModule } from "vuex-module-decorators";
 
-import { Github } from "../../plugins/github";
+import { Github } from "../../../../shared/github";
+import { config } from "../../plugins/config";
 import AuthModule from "../../store/modules/auth";
 
 @Component
@@ -68,7 +69,10 @@ export default class UserSearchModal extends Vue {
   private searchFn: Function = () => {};
 
   mounted() {
-    this.github = new Github(this.authModule);
+    this.github = new Github(
+      AuthModule.getDelegate(this.authModule),
+      config.github.app_id
+    );
 
     (this.$refs.searchField as any).focus();
 

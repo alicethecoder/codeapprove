@@ -13,10 +13,13 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@octokit/graphql": "^4.5.3",
+    "@octokit/rest": "^18.0.0",
     "axios": "^0.19.2",
     "axios-debug-log": "^0.8.0",
     "firebase-admin": "^8.12.1",
     "firebase-functions": "^3.6.1",
+    "parse-diff": "^0.7.1",
     "probot": "^10.2.0"
   },
   "devDependencies": {

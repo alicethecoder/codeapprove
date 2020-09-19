@@ -1,17 +1,14 @@
 import { Octokit } from "@octokit/rest";
 import { graphql } from "@octokit/graphql";
 import {
-  SearchUsersResponseData,
   UsersGetAuthenticatedResponseData,
   PullsGetResponseData,
   PullsListCommitsResponseData
 } from "@octokit/types";
 import parseDiff from "parse-diff";
 
-import AuthModule from "@/store/modules/auth";
 import * as octocache from "./octocache";
 import { freezeArray } from "./freeze";
-import { config } from "./config";
 
 const PREVIEWS = ["machine-man-preview"];
 
@@ -61,13 +58,18 @@ export interface UserSearchItem {
   access_level: "admin" | "write" | "read" | "none";
 }
 
+export interface AuthDelegate {
+  getExpiry(): number;
+  getToken(): string;
+  refreshAuth(): Promise<any>;
+}
+
 export class Github {
   private octokit!: Octokit;
   private gql: typeof graphql = graphql;
 
-  constructor(private authModule: AuthModule) {
-    const token = authModule.assertUser.githubToken;
-    this.applyAuth(token);
+  constructor(private authDelegate: AuthDelegate, private githubAppId: number) {
+    this.applyAuth(this.authDelegate.getToken());
   }
 
   private applyAuth(token: string) {
@@ -81,19 +83,18 @@ export class Github {
 
   async assertAuth(): Promise<void> {
     const now = new Date().getTime();
-    const expires = this.authModule.assertUser.githubExpiry;
+    const expires = this.authDelegate.getExpiry();
     const until = expires - now;
 
     const hourMs = 60 * 60 * 1000;
 
-    // TODO: This does not seem to save the expiry!
     // Refresh if it will expire in the next hour
     if (until < hourMs) {
       console.log(
         `Token expires in ${expires} - ${now} = ${until}ms, refreshing authentication`
       );
-      await this.authModule.refreshGithubAuth();
-      this.applyAuth(this.authModule.assertUser.githubToken);
+      await this.authDelegate.refreshAuth();
+      this.applyAuth(this.authDelegate.getToken());
     }
   }
 
@@ -323,7 +324,7 @@ export class Github {
 
     const installRes = await this.octokit.apps.listInstallationsForAuthenticatedUser();
     const installation = installRes.data.installations.find(
-      i => i.app_id === config.github.app_id
+      i => i.app_id === this.githubAppId
     );
 
     if (!installation) {

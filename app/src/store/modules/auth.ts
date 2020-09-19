@@ -1,6 +1,7 @@
 import { Module, VuexModule, Mutation, Action } from "vuex-module-decorators";
 import { auth, functions } from "../../plugins/firebase";
 import { User } from "../../model/auth";
+import { AuthDelegate } from "../../../../shared/github";
 
 // TODO: Namespacing?
 @Module({
@@ -9,6 +10,14 @@ import { User } from "../../model/auth";
 export default class AuthModule extends VuexModule {
   public signInKnown: boolean = false;
   public user: User | null = null;
+
+  static getDelegate(module: AuthModule): AuthDelegate {
+    return {
+      getToken: () => module.assertUser.githubToken,
+      getExpiry: () => module.assertUser.githubExpiry,
+      refreshAuth: () => module.refreshGithubAuth()
+    };
+  }
 
   @Mutation
   restoreFromLocalStorage() {

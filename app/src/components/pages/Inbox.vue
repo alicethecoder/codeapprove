@@ -82,7 +82,7 @@ import {
   Github,
   PullRequestNode,
   InstallationStatus
-} from "../../plugins/github";
+} from "../../../../shared/github";
 
 @Component({
   components: {
@@ -100,7 +100,10 @@ export default class Inbox extends Vue {
   private authModule = getModule(AuthModule, this.$store);
   private uiModule = getModule(UIModule, this.$store);
 
-  private github: Github = new Github(this.authModule);
+  private github: Github = new Github(
+    AuthModule.getDelegate(this.authModule),
+    config.github.app_id
+  );
 
   async mounted() {
     this.uiModule.beginLoading();

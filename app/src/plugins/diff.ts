@@ -1,6 +1,6 @@
 import * as parseDiff from "parse-diff";
 
-import { freezeArray } from "./freeze";
+import { freezeArray } from "../../../shared/freeze";
 import { Side, SidePair } from "../model/review";
 
 export interface FileMetadata {

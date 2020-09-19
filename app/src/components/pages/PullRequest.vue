@@ -234,8 +234,8 @@ import HotkeyModal from "@/components/elements/HotkeyModal.vue";
 import LabeledSelect from "@/components/elements/LabeledSelect.vue";
 import UserReviewIcon from "@/components/elements/UserReviewIcon.vue";
 
-import { Github, PullRequestData } from "../../plugins/github";
-import { freezeArray } from "../../plugins/freeze";
+import { freezeArray } from "../../../../shared/freeze";
+import { Github, PullRequestData } from "../../../../shared/github";
 import ReviewModule from "../../store/modules/review";
 import UIModule from "../../store/modules/ui";
 import {
@@ -268,6 +268,7 @@ import { ChangeEntryAPI, PullRequestAPI } from "../api";
 import { AddCommentEvent } from "../../plugins/events";
 import { makeTopVisible, makeBottomVisible } from "../../plugins/dom";
 import * as cookies from "../../plugins/cookies";
+import { config } from "../../plugins/config";
 
 @Component({
   components: {
@@ -301,7 +302,10 @@ export default class PullRequest extends Mixins(EventEnhancer)
   public threadFilter = "all";
 
   async mounted() {
-    this.github = new Github(this.authModule);
+    this.github = new Github(
+      AuthModule.getDelegate(this.authModule),
+      config.github.app_id
+    );
     this.uiModule.beginLoading();
 
     // TODO: Need to watch for route changes

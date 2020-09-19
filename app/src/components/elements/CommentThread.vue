@@ -17,7 +17,7 @@
         <div
           class="flex items-center pl-2 pr-1 py-2 font-bold border-b border-blue-500"
         >
-          <code>{{ thread.file }}</code>
+          <code>{{ thread.currentArgs.file }}</code>
           <span class="flex-grow"><!-- spacer --></span>
           <div
             v-if="resolved"
@@ -30,7 +30,8 @@
           <prism
             class="code-preview hover:underline cursor-pointer"
             @click="goToLine()"
-            >{{ thread.line }} {{ thread.lineContent }}</prism
+            >{{ thread.currentArgs.line }}
+            {{ thread.currentArgs.lineContent }}</prism
           >
         </div>
       </div>
@@ -128,7 +129,7 @@ import {
   ADD_COMMENT_EVENT,
   NEW_COMMENT_EVENT
 } from "../../plugins/events";
-import { Thread, ThreadArgs, Comment, Side } from "../../model/review";
+import { Thread, ThreadPositionArgs, Comment } from "../../model/review";
 import AuthModule from "../../store/modules/auth";
 import ReviewModule from "../../store/modules/review";
 import { auth } from "../../plugins/firebase";
@@ -147,11 +148,9 @@ type Mode = "inline" | "standalone";
 export default class CommentThread extends Mixins(EventEnhancer)
   implements CommentThreadAPI {
   @Prop({ default: "inline" }) mode!: Mode;
-  @Prop() side!: Side;
-  @Prop() threadId!: string | null;
   @Prop() line!: number;
-  // TODO: Do we really need this here?
-  @Prop() content!: string;
+  @Prop() sha!: string;
+  @Prop() threadId!: string | null;
 
   authModule = getModule(AuthModule, this.$store);
   reviewModule = getModule(ReviewModule, this.$store);
@@ -209,11 +208,6 @@ export default class CommentThread extends Mixins(EventEnhancer)
     return this.draftComment.length > 0;
   }
 
-  // TODO: Don't show if outdated
-  get outdated(): boolean {
-    return this.thread != null && this.thread.lineContent !== this.content;
-  }
-
   get resolved(): boolean {
     return this.thread != null && this.thread.resolved;
   }
@@ -225,16 +219,8 @@ export default class CommentThread extends Mixins(EventEnhancer)
   public async addComment(resolve?: boolean) {
     console.log(`CommendThread#addComment(${resolve})`);
 
-    // If we have a thread we know the sha, otherwise we can get it
-    // from the ReviewState based on our "side"
-    const sha = this.thread
-      ? this.thread.sha
-      : this.side === "left"
-      ? this.reviewModule.reviewState.base
-      : this.reviewModule.reviewState.head;
-
+    const sha = this.thread ? this.thread.currentArgs.sha : this.sha;
     const partialEvt: Partial<AddCommentEvent> = {
-      side: this.side,
       content: this.draftComment,
       line: this.line,
       resolve: resolve,
@@ -243,8 +229,8 @@ export default class CommentThread extends Mixins(EventEnhancer)
 
     // In standalone mode all of this will be known
     if (this.thread) {
-      partialEvt.file = this.thread.file;
-      partialEvt.lineContent = this.thread.lineContent;
+      partialEvt.file = this.thread.currentArgs.file;
+      partialEvt.lineContent = this.thread.currentArgs.lineContent;
     }
 
     // Start the event chain which goes through DiffLine, ChangeEntry, and PullRequest

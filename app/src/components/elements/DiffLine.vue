@@ -26,9 +26,8 @@
       <CommentThread
         v-if="showComments('left')"
         class="w-full"
-        :side="'left'"
         :line="rendered.left.number"
-        :content="rendered.left.content"
+        :sha="getThreadSha('left')"
         :threadId="getThreadId('left')"
         @cancel="
           drafting.left = false;
@@ -61,9 +60,8 @@
       <CommentThread
         v-if="showComments('right')"
         class="w-full"
-        :side="'right'"
         :line="rendered.right.number"
-        :content="rendered.right.content"
+        :sha="getThreadSha('right')"
         :threadId="getThreadId('right')"
         @cancel="
           drafting.right = false;
@@ -84,7 +82,7 @@ import { EventEnhancer } from "../mixins/EventEnhancer";
 import ReviewModule from "../../store/modules/review";
 import {
   Comment,
-  ThreadArgs,
+  ThreadPositionArgs,
   Thread,
   ThreadPair,
   LangPair,
@@ -135,7 +133,9 @@ export default class DiffLine extends Mixins(EventEnhancer)
 
   public handleEvent(e: Partial<AddCommentEvent>) {
     console.log("DiffLine#handleEvent");
-    e.lineContent = this.rendered[e.side!].content;
+    const base = this.reviewModule.reviewState.base;
+    const side: Side = e.sha === base ? "left" : "right";
+    e.lineContent = this.rendered[side].content;
     this.bubbleUp(e);
   }
 
@@ -195,8 +195,15 @@ export default class DiffLine extends Mixins(EventEnhancer)
     return [];
   }
 
+  public getThreadSha(side: Side): string {
+    if (side === "left") {
+      return this.reviewModule.reviewState.base;
+    } else {
+      return this.reviewModule.reviewState.head;
+    }
+  }
+
   public getThreadId(side: Side): string | null {
-    // TODO: Seriously need to optimize this!  Should be calculated inside out
     const thread = this.threads[side];
     return thread === null ? null : thread.id;
   }

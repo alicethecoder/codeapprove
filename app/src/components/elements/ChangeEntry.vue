@@ -101,7 +101,7 @@ import { nextRender, makeTopVisible } from "../../plugins/dom";
 import { getFileLang } from "../../plugins/prism";
 
 import {
-  ThreadArgs,
+  ThreadPositionArgs,
   Thread,
   Side,
   ThreadPair,
@@ -142,13 +142,13 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
   private github: Github = new Github(this.authModule);
 
   public getThreads(pair: RenderedChangePair): ThreadPair {
-    const leftArgs: ThreadArgs = {
+    const leftArgs: ThreadPositionArgs = {
       sha: this.reviewModule.reviewState.base,
       file: this.meta.from,
       line: pair.left.number
     };
 
-    const rightArgs: ThreadArgs = {
+    const rightArgs: ThreadPositionArgs = {
       sha: this.reviewModule.reviewState.head,
       file: this.meta.to,
       line: pair.right.number
@@ -162,7 +162,8 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
 
   public handleEvent(e: Partial<AddCommentEvent>) {
     console.log("ChangeEntry#handleEvent");
-    e.file = e.side === "left" ? this.meta.from : this.meta.to;
+    const base = this.reviewModule.reviewState.base;
+    e.file = e.sha === base ? this.meta.from : this.meta.to;
     this.bubbleUp(e);
   }
 

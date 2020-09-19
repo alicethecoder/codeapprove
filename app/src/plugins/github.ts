@@ -200,19 +200,75 @@ export class Github {
   ): Promise<parseDiff.File[]> {
     await this.assertAuth();
 
-    const res = await this.octokit.repos.compareCommits({
-      owner,
-      repo,
-      base,
-      head,
-      mediaType: {
-        format: "diff"
+    const res = await octocache.call(
+      "repos.compareCommits",
+      this.octokit.repos.compareCommits,
+      {
+        owner,
+        repo,
+        base,
+        head,
+        mediaType: {
+          format: "diff"
+        }
       }
-    });
+    );
 
     // The strange header changes the response type
-    const data = (res.data as unknown) as string;
+    const data = (res as unknown) as string;
     return parseDiff(data);
+  }
+
+  // TODO: Move this somewhere the server can get to it
+  async translateLineNumber(
+    owner: string,
+    repo: string,
+    base: string,
+    head: string,
+    file: string,
+    line: number
+  ) {
+    const diff = await this.getDiff(owner, repo, base, head);
+    const fileDiff = diff.find(f => f.from === file);
+    if (!fileDiff) {
+      return -1;
+    }
+
+    // If the line in question is before the start of the diff, number is unchanged
+    const firstLine = fileDiff.chunks[0].oldStart;
+    if (line < firstLine) {
+      return line;
+    }
+
+    // Keep track of how many lines are added/deleted (net) above the line
+    let nudge = 0;
+
+    for (const chunk of fileDiff.chunks) {
+      for (const change of chunk.changes) {
+        // Loop until one of:
+        // a) We find a normal block that's an exact match
+        // b) We find a normal block that's after the line in question,
+        //    letting us know that we passed it and we can apply the nudge
+        switch (change.type) {
+          case "normal":
+            if (change.ln1 === line) {
+              return change.ln2;
+            } else if (change.ln1 > line) {
+              return line + nudge;
+            }
+            break;
+          case "add":
+            nudge += 1;
+            break;
+          case "del":
+            nudge -= 1;
+            break;
+        }
+      }
+    }
+
+    // If we get here it's off the end of the diff, just apply the nudge
+    return line + nudge;
   }
 
   async getContentLines(

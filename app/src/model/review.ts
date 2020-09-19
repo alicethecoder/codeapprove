@@ -23,7 +23,7 @@ export interface Review {
 // TODO:
 // - Should not need "side" since the sha should determine that
 // - Need two copies of all args - original and current
-export interface ThreadArgs {
+export interface ThreadPositionArgs {
   file: string;
   sha: string;
   line: number;
@@ -33,11 +33,16 @@ export interface ThreadContentArgs {
   lineContent: string;
 }
 
-export interface Thread extends ThreadArgs, ThreadContentArgs {
+export type ThreadArgs = ThreadPositionArgs & ThreadContentArgs;
+
+export interface Thread {
   id: string;
   draft: boolean;
   resolved: boolean;
   pendingResolved: boolean;
+
+  currentArgs: ThreadArgs;
+  originalArgs: ThreadArgs;
 }
 
 export interface CommentUser {
@@ -57,10 +62,11 @@ export interface LangPair extends SidePair<string> {}
 
 export interface ThreadPair extends SidePair<Thread | null> {}
 
-export function threadMatch(thread: Thread, args: ThreadArgs): boolean {
+export function threadMatch(thread: Thread, args: ThreadPositionArgs): boolean {
+  // TODO: Consider originalArgs?
   return (
-    args.file === thread.file &&
-    args.line === thread.line &&
-    args.sha === thread.sha
+    args.file === thread.currentArgs.file &&
+    args.line === thread.currentArgs.line &&
+    args.sha === thread.currentArgs.sha
   );
 }

@@ -5,12 +5,12 @@ import {
   Comment,
   CommentUser,
   Thread,
-  ThreadArgs,
+  ThreadPositionArgs,
   threadMatch,
   Review,
   ReviewMetadata,
-  Side,
-  ThreadContentArgs
+  ThreadContentArgs,
+  ThreadArgs
 } from "@/model/review";
 import * as events from "../../plugins/events";
 import { NEW_COMMENT_EVENT, AddCommentEvent } from "../../plugins/events";
@@ -55,7 +55,7 @@ export default class ReviewModule extends VuexModule {
   }
 
   get threadByArgs() {
-    return (args: ThreadArgs | null) => {
+    return (args: ThreadPositionArgs | null) => {
       if (args === null) {
         return null;
       }
@@ -65,7 +65,9 @@ export default class ReviewModule extends VuexModule {
 
   get threadsByFileAndSha() {
     return (file: string, sha: string) => {
-      return this.review.threads.filter(x => x.file === file && x.sha === sha);
+      return this.review.threads.filter(
+        x => x.currentArgs.file === file && x.currentArgs.sha === sha
+      );
     };
   }
 
@@ -136,15 +138,22 @@ export default class ReviewModule extends VuexModule {
   }
 
   @Action
-  public newThread(opts: { args: ThreadArgs; ca: ThreadContentArgs }): Thread {
+  public newThread(opts: {
+    args: ThreadPositionArgs;
+    ca: ThreadContentArgs;
+  }): Thread {
     console.log(`newThread(${JSON.stringify(opts)})`);
+
+    const ta: ThreadArgs = { ...opts.args, ...opts.ca };
     const thread: Thread = {
       id: uuid.v4(),
       resolved: false,
       pendingResolved: false,
       draft: true,
-      ...opts.args,
-      ...opts.ca
+
+      // TODO: Is this right? Should they differ?
+      currentArgs: ta,
+      originalArgs: ta
     };
 
     // TODO: Network and shit
@@ -187,7 +196,7 @@ export default class ReviewModule extends VuexModule {
     user: CommentUser;
   }) {
     const e = opts.e;
-    const threadArgs: ThreadArgs = {
+    const threadArgs: ThreadPositionArgs = {
       file: e.file,
       sha: e.sha,
       line: e.line

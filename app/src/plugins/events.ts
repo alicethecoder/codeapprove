@@ -14,8 +14,6 @@ export interface AddCommentEvent {
   file: string;
   lineContent: string;
   sha: string;
-
-  side: Side;
 }
 
 export const NEW_COMMENT_EVENT = "new-comment";

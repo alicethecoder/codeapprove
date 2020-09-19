@@ -209,9 +209,8 @@
         :key="thread.id"
         class="w-1/2 mb-2"
         :mode="'standalone'"
-        :side="thread.side"
-        :line="thread.line"
-        :content="thread.lineContent"
+        :line="thread.currentArgs.line"
+        :sha="thread.currentArgs.sha"
         :threadId="thread.id"
         @goto="goToThread(thread)"
       />
@@ -349,10 +348,6 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   public handleEvent(e: Partial<AddCommentEvent>) {
     console.log("PullRequest#handleEvent");
-    e.sha =
-      e.side === "left"
-        ? this.reviewModule.reviewState.base
-        : this.reviewModule.reviewState.head;
 
     const finalEvent = e as AddCommentEvent;
     const user: CommentUser = {
@@ -483,17 +478,22 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   public goToThread(thread: Thread) {
-    console.log("goToThread", thread.sha, thread.file, thread.line);
+    console.log(
+      "goToThread",
+      thread.currentArgs.sha,
+      thread.currentArgs.file,
+      thread.currentArgs.line
+    );
 
     const changes = this.prChanges!;
     for (let i = 0; i < changes.length; i++) {
       const change = changes[i];
 
       const match =
-        (thread.sha === this.reviewModule.reviewState.base &&
-          change.file.from === thread.file) ||
-        (thread.sha === this.reviewModule.reviewState.head &&
-          change.file.to === thread.file);
+        (thread.currentArgs.sha === this.reviewModule.reviewState.base &&
+          change.file.from === thread.currentArgs.file) ||
+        (thread.currentArgs.sha === this.reviewModule.reviewState.head &&
+          change.file.to === thread.currentArgs.file);
 
       // TODO: Jump to specific file
       if (match) {

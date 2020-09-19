@@ -179,10 +179,10 @@
       </div>
 
       <ChangeEntry
-        v-for="(change, i) in prChanges.changes"
+        v-for="(change, i) in prChanges"
         ref="changes"
         @click.native="setActiveChangeEntry(i)"
-        :key="`change-${change.file.from}-${change.file.to}`"
+        :key="changeEntryKey(change)"
         :meta="change.metadata"
         :chunks="change.data"
       />
@@ -244,9 +244,9 @@ import {
   renderPairs,
   zipChangePairs,
   ChunkData,
-  PullRequestChanges,
   FileMetadata,
-  RenderedChangePair
+  RenderedChangePair,
+  PullRequestChange
 } from "../../plugins/diff";
 import {
   Thread,
@@ -295,7 +295,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   // TODO: These should be one state object
   public prData: PullRequestData | null = null;
-  public prChanges: PullRequestChanges | null = null;
+  public prChanges: PullRequestChange[] | null = null;
   public meta!: ReviewMetadata;
 
   public activeFileIndex = -1;
@@ -324,8 +324,8 @@ export default class PullRequest extends Mixins(EventEnhancer)
       this.meta.number
     );
     this.reviewModule.setBaseAndHead({
-      base: this.prData!.pr.base.ref,
-      head: this.prData!.pr.head.ref
+      base: this.prData!.pr.base.sha,
+      head: this.prData!.pr.head.sha
     });
     this.prChanges = this.renderPullRequest(this.prData);
 
@@ -440,6 +440,11 @@ export default class PullRequest extends Mixins(EventEnhancer)
     return `${commit.sha.substring(0, 6)} ${shortMsg}`;
   }
 
+  public changeEntryKey(change: PullRequestChange) {
+    const { base, head } = this.reviewModule.reviewState;
+    return `${change.metadata.from}@${base}-${change.metadata.to}@${head}`;
+  }
+
   public setActiveChangeEntry(index: number) {
     const curr = this.getCurrentChangeEntry();
     if (curr) {
@@ -478,15 +483,17 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   public goToThread(thread: Thread) {
-    console.log("goToThread", thread.side, thread.file, thread.line);
+    console.log("goToThread", thread.sha, thread.file, thread.line);
 
-    const changes = this.prChanges!.changes;
+    const changes = this.prChanges!;
     for (let i = 0; i < changes.length; i++) {
       const change = changes[i];
 
       const match =
-        (thread.side === "left" && change.file.from === thread.file) ||
-        (thread.side === "right" && change.file.to === thread.file);
+        (thread.sha === this.reviewModule.reviewState.base &&
+          change.file.from === thread.file) ||
+        (thread.sha === this.reviewModule.reviewState.head &&
+          change.file.to === thread.file);
 
       // TODO: Jump to specific file
       if (match) {
@@ -613,26 +620,24 @@ export default class PullRequest extends Mixins(EventEnhancer)
     return unresolved.length;
   }
 
-  private renderPullRequest(prData: PullRequestData): PullRequestChanges {
-    const rendered: PullRequestChanges = {
-      changes: prData.diffs.map(file => {
-        const metadata: FileMetadata = getFileMetadata(file);
-        const data: ChunkData[] = file.chunks.map(chunk => {
-          return {
-            chunk,
-            pairs: freezeArray(renderPairs(zipChangePairs(chunk)))
-          };
-        });
-
+  private renderPullRequest(prData: PullRequestData): PullRequestChange[] {
+    const changes: PullRequestChange[] = prData.diffs.map(file => {
+      const metadata: FileMetadata = getFileMetadata(file);
+      const data: ChunkData[] = file.chunks.map(chunk => {
         return {
-          file,
-          metadata,
-          data
+          chunk,
+          pairs: freezeArray(renderPairs(zipChangePairs(chunk)))
         };
-      })
-    };
+      });
 
-    return rendered;
+      return {
+        file,
+        metadata,
+        data
+      };
+    });
+
+    return changes;
   }
 
   beforeMount() {

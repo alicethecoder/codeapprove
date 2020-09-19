@@ -1,14 +1,12 @@
 import Vue from "vue";
+import { Side } from "@/model/review";
 
 const BUS = new Vue();
 
 type Callback<T> = (arg: T) => void;
 
-import { Side } from "../model/review";
-
 export const ADD_COMMENT_EVENT = "add-comment";
 export interface AddCommentEvent {
-  side: Side;
   line: number;
   content: string;
   resolve?: boolean;
@@ -16,6 +14,8 @@ export interface AddCommentEvent {
   file: string;
   lineContent: string;
   sha: string;
+
+  side: Side;
 }
 
 export const NEW_COMMENT_EVENT = "new-comment";

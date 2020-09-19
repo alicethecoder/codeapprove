@@ -2,14 +2,14 @@ import Vue from "vue";
 import { Module, VuexModule, Mutation, Action } from "vuex-module-decorators";
 import * as uuid from "uuid";
 import {
-  Review,
   Comment,
   CommentUser,
   Thread,
   ThreadArgs,
-  Side,
   threadMatch,
+  Review,
   ReviewMetadata,
+  Side,
   ThreadContentArgs
 } from "@/model/review";
 import * as events from "../../plugins/events";
@@ -63,11 +63,9 @@ export default class ReviewModule extends VuexModule {
     };
   }
 
-  get threadsByFile() {
-    return (file: string, side: Side) => {
-      return this.review.threads.filter(
-        x => x.file === file && x.side === side
-      );
+  get threadsByFileAndSha() {
+    return (file: string, sha: string) => {
+      return this.review.threads.filter(x => x.file === file && x.sha === sha);
     };
   }
 
@@ -132,6 +130,7 @@ export default class ReviewModule extends VuexModule {
 
   @Mutation
   public setBaseAndHead(opts: { base: string; head: string }) {
+    console.log(`review#setBaseAndHead(${opts.base}, ${opts.head})`);
     this.reviewState.base = opts.base;
     this.reviewState.head = opts.head;
   }
@@ -190,13 +189,11 @@ export default class ReviewModule extends VuexModule {
     const e = opts.e;
     const threadArgs: ThreadArgs = {
       file: e.file,
-      side: e.side,
+      sha: e.sha,
       line: e.line
     };
 
-    // TODO: This needs to be real
     const threadContentArgs: ThreadContentArgs = {
-      sha: e.sha,
       lineContent: e.lineContent
     };
 

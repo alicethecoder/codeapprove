@@ -1,8 +1,12 @@
 PROJECT ?= codeapprove-dev
 
-format:
-	(cd app && npm run lint-fix) && \
+format-app:
+	(cd app && npm run lint-fix)
+
+format-functions:
 	(cd functions && npm run format)
+
+format: format-app format-functions
 
 deploy-firestore:
 	firebase --project=$(PROJECT) deploy --only firestore

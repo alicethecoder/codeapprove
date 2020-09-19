@@ -87,7 +87,9 @@ import {
   ThreadArgs,
   Thread,
   ThreadPair,
-  LangPair
+  LangPair,
+  Side,
+  SidePair
 } from "../../model/review";
 import {
   RenderedChangePair,
@@ -96,8 +98,6 @@ import {
 } from "../../plugins/diff";
 import { AddCommentEvent } from "../../plugins/events";
 import { DiffLineAPI } from "../api";
-
-type Side = "left" | "right";
 
 @Component({
   components: {
@@ -112,17 +112,17 @@ export default class DiffLine extends Mixins(EventEnhancer)
 
   reviewModule = getModule(ReviewModule, this.$store);
 
-  public comments: { [s in Side]: Comment[] } = {
+  public comments: SidePair<Comment[]> = {
     left: [],
     right: []
   };
 
-  public hovered: { [s in Side]: boolean } = {
+  public hovered: SidePair<boolean> = {
     left: false,
     right: false
   };
 
-  public drafting: { [s in Side]: boolean } = {
+  public drafting: SidePair<boolean> = {
     left: false,
     right: false
   };

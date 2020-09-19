@@ -6,13 +6,13 @@ import * as log from "./logger";
 export function bot(app: Application) {
   app.on("push", async (context) => {
     // A new commit has been pushed to a branch.
-    log.info("push", context);
+    log.info("push", context.payload);
 
     // TODO: Implement
   });
 
   app.on("pull_request", async (context) => {
-    log.info("pull_request", context);
+    log.info("pull_request", context.payload);
 
     // TODO: Implement
   });
@@ -23,7 +23,7 @@ export function bot(app: Application) {
     // to all GitHub apps that are installed on each commit.
     //
     // A check run is an individual test that runs as part of a check suite.
-    log.info("check_suite.requested", context);
+    log.info("check_suite.requested", context.payload);
 
     const owner = context.repo().owner;
     const repo = context.repo().repo;

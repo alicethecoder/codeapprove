@@ -1,11 +1,18 @@
 export type Side = "left" | "right";
 
+export interface SidePair<T> {
+  left: T;
+  right: T;
+}
+
 export interface ReviewMetadata {
   owner: string;
   repo: string;
   number: number;
 }
 
+// TODO:
+// - Need information about what is up to date (comment shas, etc)
 export interface Review {
   metadata: ReviewMetadata;
   reviewers: Record<string, boolean>;
@@ -13,14 +20,16 @@ export interface Review {
   comments: Comment[];
 }
 
+// TODO:
+// - Should not need "side" since the sha should determine that
+// - Need two copies of all args - original and current
 export interface ThreadArgs {
   file: string;
-  side: Side;
+  sha: string;
   line: number;
 }
 
 export interface ThreadContentArgs {
-  sha: string;
   lineContent: string;
 }
 
@@ -44,20 +53,14 @@ export interface Comment extends CommentUser {
   text: string;
 }
 
-export interface LangPair {
-  left: string;
-  right: string;
-}
+export interface LangPair extends SidePair<string> {}
 
-export interface ThreadPair {
-  left: Thread | null;
-  right: Thread | null;
-}
+export interface ThreadPair extends SidePair<Thread | null> {}
 
 export function threadMatch(thread: Thread, args: ThreadArgs): boolean {
   return (
     args.file === thread.file &&
     args.line === thread.line &&
-    args.side === thread.side
+    args.sha === thread.sha
   );
 }

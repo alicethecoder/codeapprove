@@ -224,20 +224,30 @@ export default class CommentThread extends Mixins(EventEnhancer)
 
   public async addComment(resolve?: boolean) {
     console.log(`CommendThread#addComment(${resolve})`);
+
+    // If we have a thread we know the sha, otherwise we can get it
+    // from the ReviewState based on our "side"
+    const sha = this.thread
+      ? this.thread.sha
+      : this.side === "left"
+      ? this.reviewModule.reviewState.base
+      : this.reviewModule.reviewState.head;
+
     const partialEvt: Partial<AddCommentEvent> = {
-      content: this.draftComment,
       side: this.side,
+      content: this.draftComment,
       line: this.line,
-      resolve: resolve
+      resolve: resolve,
+      sha: sha
     };
 
     // In standalone mode all of this will be known
     if (this.thread) {
       partialEvt.file = this.thread.file;
-      partialEvt.sha = this.thread.sha;
       partialEvt.lineContent = this.thread.lineContent;
     }
 
+    // Start the event chain which goes through DiffLine, ChangeEntry, and PullRequest
     this.bubbleUp(partialEvt);
 
     // TODO: Need some kind of "pending" state until the thing hits the server

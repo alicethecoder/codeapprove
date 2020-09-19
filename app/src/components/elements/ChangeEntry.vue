@@ -143,13 +143,13 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
 
   public getThreads(pair: RenderedChangePair): ThreadPair {
     const leftArgs: ThreadArgs = {
-      side: "left",
+      sha: this.reviewModule.reviewState.base,
       file: this.meta.from,
       line: pair.left.number
     };
 
     const rightArgs: ThreadArgs = {
-      side: "right",
+      sha: this.reviewModule.reviewState.head,
       file: this.meta.to,
       line: pair.right.number
     };
@@ -162,8 +162,7 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
 
   public handleEvent(e: Partial<AddCommentEvent>) {
     console.log("ChangeEntry#handleEvent");
-    const file = e.side === "left" ? this.meta.from : this.meta.to;
-    e.file = file;
+    e.file = e.side === "left" ? this.meta.from : this.meta.to;
     this.bubbleUp(e);
   }
 
@@ -370,8 +369,14 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
   }
 
   get allThreads() {
-    const l: Thread[] = this.reviewModule.threadsByFile(this.meta.from, "left");
-    const r: Thread[] = this.reviewModule.threadsByFile(this.meta.to, "right");
+    const l: Thread[] = this.reviewModule.threadsByFileAndSha(
+      this.meta.from,
+      this.reviewModule.reviewState.base
+    );
+    const r: Thread[] = this.reviewModule.threadsByFileAndSha(
+      this.meta.to,
+      this.reviewModule.reviewState.head
+    );
 
     return [...l, ...r];
   }

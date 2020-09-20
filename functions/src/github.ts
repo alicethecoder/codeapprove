@@ -31,7 +31,7 @@ export function getExpiryDate(expires_in_seconds: string): number {
 }
 
 export async function exchangeCode(code: string): Promise<AccessTokenResponse> {
-  logger.info('github.exchangeCode');
+  logger.info("github.exchangeCode");
   const tokenRes = await ax.post(
     `https://github.com/login/oauth/access_token?${qs.stringify({
       client_id: config.github().client_id,
@@ -47,7 +47,7 @@ export async function exchangeCode(code: string): Promise<AccessTokenResponse> {
 export async function exchangeRefreshToken(
   refresh_token: string
 ): Promise<AccessTokenResponse> {
-  logger.info('github.exchangeRefreshToken');
+  logger.info("github.exchangeRefreshToken");
   const tokenRes = await ax.post(
     `https://github.com/login/oauth/access_token?${qs.stringify({
       client_id: config.github().client_id,

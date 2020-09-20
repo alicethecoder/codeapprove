@@ -14,6 +14,12 @@ import {
 } from "@/model/review";
 import * as events from "../../plugins/events";
 import { NEW_COMMENT_EVENT, AddCommentEvent } from "../../plugins/events";
+import { firestore } from "../../plugins/firebase";
+
+interface ReviewState {
+  base: string;
+  head: string;
+}
 
 // TODO: Namespacing?
 @Module({
@@ -21,7 +27,7 @@ import { NEW_COMMENT_EVENT, AddCommentEvent } from "../../plugins/events";
 })
 export default class ReviewModule extends VuexModule {
   // UI State related to the review (not persisted)
-  public reviewState = {
+  public reviewState: ReviewState = {
     base: "unknown",
     head: "unknown"
   };
@@ -31,12 +37,39 @@ export default class ReviewModule extends VuexModule {
     metadata: {
       owner: "unknown",
       repo: "unknown",
-      number: 0
+      number: 0,
+      base: {
+        sha: "unknown",
+        label: "unknown:unknown"
+      },
+      head: {
+        sha: "unknown",
+        label: "unknown:unknown"
+      }
     },
     reviewers: {},
     threads: [],
     comments: []
   };
+
+  static reviewKey(metadata: ReviewMetadata) {
+    const { owner, repo, number } = metadata;
+    return `${owner}-${repo}-${number}`;
+  }
+
+  static reviewRef(metadata: ReviewMetadata) {
+    return firestore()
+      .collection("reviews")
+      .doc(this.reviewKey(metadata));
+  }
+
+  static threadsRef(metadata: ReviewMetadata) {
+    return this.reviewRef(metadata).collection("threads");
+  }
+
+  static commentsRef(metadata: ReviewMetadata) {
+    return this.reviewRef(metadata).collection("comments");
+  }
 
   get drafts() {
     return this.review.comments.filter(x => x.draft);
@@ -71,31 +104,64 @@ export default class ReviewModule extends VuexModule {
     };
   }
 
-  @Mutation
-  public initializeReview(metadata: ReviewMetadata) {
-    // TODO: Should this be an action which pulls down information?
-    // TODO: Should this set up reviewState
-    this.review = {
+  @Action
+  public async initializeReview(metadata: ReviewMetadata) {
+    this.context.commit("setReview", {
       metadata,
       reviewers: {},
       threads: [],
       comments: []
-    };
+    });
+
+    this.context.commit("setReviewState", {
+      base: metadata.base.sha,
+      head: metadata.head.sha
+    });
+
+    // TODO: Unsub
+    ReviewModule.threadsRef(metadata).onSnapshot(snap => {
+      console.log("threads#onSnapshot", snap.size);
+      const threads = snap.docs.map(doc => doc.data() as Thread);
+      this.context.commit("setThreads", threads);
+    });
+
+    // TODO: Unsub
+    ReviewModule.commentsRef(metadata).onSnapshot(snap => {
+      console.log("comments#onSnapshot", snap.size);
+      const comments = snap.docs.map(doc => doc.data() as Comment);
+      this.context.commit("setComments", comments);
+
+      // TODO: We should actually sync this with the array instead
+      // TODO: Should we watch all events? This feels messy.
+      snap.docChanges().forEach(chg => {
+        if (chg.type === "added") {
+          const comment = chg.doc.data() as Comment;
+          events.emit(NEW_COMMENT_EVENT, { threadId: comment.threadId });
+        }
+      });
+    });
+
+    // TODO: need a teardown method too
   }
 
   @Mutation
-  public pushThread(thread: Thread) {
-    console.log(`pushThread(${thread.id})`);
-    this.review.threads.push(thread);
+  public setReview(review: Review) {
+    this.review = review;
   }
 
   @Mutation
-  public pushComment(comment: Comment) {
-    console.log(`pushComment(${comment.id})`);
-    this.review.comments.push(comment);
+  public setReviewState(reviewState: ReviewState) {
+    this.reviewState = reviewState;
+  }
 
-    // TODO: Is there a way I could automate this?
-    events.emit(NEW_COMMENT_EVENT, { threadId: comment.threadId });
+  @Mutation
+  public setThreads(threads: Thread[]) {
+    Vue.set(this.review, "threads", threads);
+  }
+
+  @Mutation
+  public setComments(comments: Comment[]) {
+    Vue.set(this.review, "comments", comments);
   }
 
   @Mutation
@@ -103,18 +169,6 @@ export default class ReviewModule extends VuexModule {
     const thread = this.review.threads.find(x => x.id === opts.threadId);
     if (thread) {
       thread.pendingResolved = opts.resolved;
-    }
-  }
-
-  @Mutation
-  public removeDraftStatus() {
-    for (const thread of this.review.threads) {
-      thread.draft = false;
-      thread.resolved = thread.pendingResolved;
-    }
-
-    for (const comment of this.review.comments) {
-      comment.draft = false;
     }
   }
 
@@ -138,11 +192,19 @@ export default class ReviewModule extends VuexModule {
   }
 
   @Action
-  public newThread(opts: {
+  public async newThread(opts: {
     args: ThreadPositionArgs;
     ca: ThreadContentArgs;
-  }): Thread {
+  }): Promise<Thread> {
     console.log(`newThread(${JSON.stringify(opts)})`);
+
+    // TODO: Do something about this
+    const prHead = this.review.metadata.head.sha;
+    if (opts.args.sha !== prHead) {
+      console.log(
+        `newThread: thread posted on outdated commit (head=${prHead})`
+      );
+    }
 
     const ta: ThreadArgs = { ...opts.args, ...opts.ca };
     const thread: Thread = {
@@ -156,8 +218,11 @@ export default class ReviewModule extends VuexModule {
       originalArgs: ta
     };
 
-    // TODO: Network and shit
-    this.context.commit("pushThread", thread);
+    // Push the thread to Firebase
+    await ReviewModule.threadsRef(this.review.metadata)
+      .doc(thread.id)
+      .set(thread);
+
     return thread;
   }
 
@@ -179,15 +244,39 @@ export default class ReviewModule extends VuexModule {
       draft: true
     };
 
-    // TODO: Network and shit
-    this.context.commit("pushComment", comment);
+    // Push the comment to Firebase
+    await ReviewModule.commentsRef(this.review.metadata)
+      .doc(comment.id)
+      .set(comment);
+
     return comment;
   }
 
   @Action
   public async sendDraftComments() {
-    // TODO: Network and shit
-    this.context.commit("removeDraftStatus");
+    // TODO: Only update MY drafts!
+    const batch = firestore().batch();
+
+    for (const thread of this.review.threads) {
+      batch.update(
+        ReviewModule.threadsRef(this.review.metadata).doc(thread.id),
+        {
+          draft: false,
+          resolved: thread.pendingResolved
+        }
+      );
+    }
+
+    for (const comment of this.review.comments) {
+      batch.update(
+        ReviewModule.commentsRef(this.review.metadata).doc(comment.id),
+        {
+          draft: false
+        }
+      );
+    }
+
+    await batch.commit();
   }
 
   @Action

@@ -1,6 +1,7 @@
 import * as firebase from "firebase/app";
 import "firebase/analytics";
 import "firebase/auth";
+import "firebase/firestore";
 import "firebase/functions";
 import "firebase/remote-config";
 
@@ -8,6 +9,10 @@ import { config } from "./config";
 
 export function auth(): firebase.auth.Auth {
   return app().auth();
+}
+
+export function firestore(): firebase.firestore.Firestore {
+  return app().firestore();
 }
 
 export function functions(): firebase.functions.Functions {

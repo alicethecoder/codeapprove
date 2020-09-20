@@ -9,6 +9,14 @@ export interface ReviewMetadata {
   owner: string;
   repo: string;
   number: number;
+  base: {
+    label: string;
+    sha: string;
+  };
+  head: {
+    label: string;
+    sha: string;
+  };
 }
 
 // TODO:

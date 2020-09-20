@@ -312,24 +312,28 @@ export default class PullRequest extends Mixins(EventEnhancer)
     // https://router.vuejs.org/guide/essentials/dynamic-matching.html#reacting-to-params-changes
     const params = this.$route.params;
 
+    const { owner, repo } = params;
+    const number = Number.parseInt(params.number);
+
+    this.prData = await this.github.getPullRequest(owner, repo, number);
+
+    // TODO: Do we need to hold onto prData at all?
     this.meta = {
-      owner: params.owner,
-      repo: params.repo,
-      number: Number.parseInt(params.number)
+      owner,
+      repo,
+      number,
+      base: {
+        label: this.prData.pr.base.label,
+        sha: this.prData.pr.base.sha
+      },
+      head: {
+        label: this.prData.pr.head.label,
+        sha: this.prData.pr.head.sha
+      }
     };
 
-    // TODO: This group of actions should be more atomic
     // TODO: Call this again on base change?
-    this.reviewModule.initializeReview(this.meta);
-    this.prData = await this.github.getPullRequest(
-      this.meta.owner,
-      this.meta.repo,
-      this.meta.number
-    );
-    this.reviewModule.setBaseAndHead({
-      base: this.prData!.pr.base.sha,
-      head: this.prData!.pr.head.sha
-    });
+    await this.reviewModule.initializeReview(this.meta);
     this.prChanges = this.renderPullRequest(this.prData);
 
     this.uiModule.endLoading();

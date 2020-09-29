@@ -4,12 +4,15 @@ import * as qs from "querystring";
 
 import * as api from "./api";
 import * as config from "./config";
-import * as github from "./github";
+import * as githubAuth from "./githubAuth";
 import * as users from "./users";
 import * as log from "./logger";
 
 import { serverless, ProbotConfig } from "./probot-serverless-gcf";
 import { bot } from "./bot";
+
+import { Installation } from "../../shared/types";
+import { Github } from "../../shared/github";
 
 const ax = api.getAxios();
 
@@ -30,6 +33,94 @@ export const githubWebhook = functions.https.onRequest(
   serverless(getProbotConfig(), bot)
 );
 
+// TODO: Move this to be part of the probot
+export const updateThreads = functions.https.onRequest(async (req, res) => {
+  const owner = "hatboysam";
+  const repo = "codeapprove";
+  const number = 7;
+
+  // Get the installation ID
+  const repoKey = `${owner}-${repo}`;
+  const installationRef = admin
+    .firestore()
+    .collection("installations")
+    .doc(repoKey);
+  const installationDoc = await installationRef.get();
+  const installation = installationDoc.data() as Installation;
+
+  // Now get a token
+  const token = await githubAuth.getInstallationToken(
+    installation.installation_id,
+    installation.repo_id
+  );
+
+  // TODO: Move this whole thing to githubAuth
+  // Authorize a GitHub instance
+  const gh = new Github(
+    {
+      getToken: () => {
+        return token.token;
+      },
+      getExpiry: () => {
+        // TODO: Deal with this possibility
+        return Number.MAX_SAFE_INTEGER;
+      },
+      refreshAuth: async () => {
+        // TODO: Deal with this possibility
+      },
+    },
+    config.github().app_id
+  );
+
+  // Get the latest SHA
+  const pr = await gh.getPullRequestMetadata(owner, repo, number);
+  const headSha = pr.head.sha;
+
+  const reviewKey = `${owner}-${repo}-${number}`;
+  const threadsRef = admin
+    .firestore()
+    .collection("reviews")
+    .doc(reviewKey)
+    .collection("threads");
+
+  const threadsSnap = await threadsRef.get();
+
+  for (const thread of threadsSnap.docs) {
+    // TODO: Move thread type to shared
+    const data = thread.data();
+    const { sha, file, line, lineContent } = data.currentArgs;
+
+    if (sha !== headSha) {
+      console.log(`Updating thread ${thread.ref.id} from ${sha}`);
+      const newLine = await gh.translateLineNumber(
+        owner,
+        repo,
+        sha,
+        headSha,
+        file,
+        line
+      );
+
+      // TODO: What if newLine === -1?
+      // TODO: What about updated file name and line content?
+      const newArgs = {
+        sha: headSha,
+        line: newLine,
+        lineContent: newLine === -1 ? "" : lineContent,
+        file: file,
+      };
+
+      await thread.ref.update("currentArgs", newArgs);
+    } else {
+      console.log(`Thread ${thread.ref.id} is up to date at ${sha}`);
+    }
+  }
+
+  res.json({
+    status: "ok",
+  });
+});
+
 /**
  * Exchange a Firebase Auth token for a github access token
  */
@@ -42,7 +133,7 @@ export const getGithubToken = functions.https.onCall(async (data, ctx) => {
   log.info("uid", ctx.auth.uid);
   log.secret("user", user);
 
-  const token = await github.exchangeRefreshToken(user.refresh_token);
+  const token = await githubAuth.exchangeRefreshToken(user.refresh_token);
   log.secret("token", token);
 
   // Save updated token to the database
@@ -55,7 +146,7 @@ export const getGithubToken = functions.https.onCall(async (data, ctx) => {
 
   return {
     access_token: token.access_token,
-    access_token_expires: github.getExpiryDate(token.expires_in),
+    access_token_expires: githubAuth.getExpiryDate(token.expires_in),
   };
 });
 
@@ -70,7 +161,7 @@ export const oauth = functions.https.onRequest(async (request, response) => {
     access_token,
     refresh_token,
     refresh_token_expires_in,
-  } = await github.exchangeCode(code);
+  } = await githubAuth.exchangeCode(code);
 
   log.secret("refresh_token", refresh_token);
   log.secret("refresh_token_expires_in", refresh_token_expires_in);

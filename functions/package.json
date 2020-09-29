@@ -3,7 +3,7 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc -w",
-    "format": "prettier --write src/*.ts src/**/*.ts",
+    "format": "prettier --write src/*.ts src/**/*.ts ../shared/*.ts",
     "emulate": "firebase emulators:start --only \"hosting,functions\"",
     "serve": "concurrently \"npm run build:watch\" \"npm run emulate\"",
     "deploy": "firebase deploy --only functions"
@@ -11,8 +11,9 @@
   "engines": {
     "node": "10"
   },
-  "main": "lib/index.js",
+  "main": "lib/functions/src/index.js",
   "dependencies": {
+    "@octokit/auth-app": "^2.6.0",
     "@octokit/graphql": "^4.5.3",
     "@octokit/rest": "^18.0.0",
     "axios": "^0.19.2",

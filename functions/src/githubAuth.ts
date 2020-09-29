@@ -1,10 +1,15 @@
 import * as qs from "querystring";
+import { createAppAuth } from "@octokit/auth-app";
 
 import * as api from "./api";
 import * as config from "./config";
 import * as logger from "./logger";
 
+type AppAuth = ReturnType<typeof createAppAuth>;
+
 const ax = api.getAxios();
+
+const AUTH_CACHE: Record<number, AppAuth> = {};
 
 export interface AccessTokenResponse {
   access_token: string;
@@ -12,6 +17,61 @@ export interface AccessTokenResponse {
   refresh_token: string;
   refresh_token_expires_in: string;
 }
+
+export interface InstallationTokenResponse {
+  token: string;
+  expiresAt: Date;
+}
+
+function getAppAuth(installationId?: number): AppAuth {
+  const id = installationId || -1;
+  if (!AUTH_CACHE[id]) {
+    const keyString = Buffer.from(
+      config.github().private_key_encoded,
+      "base64"
+    ).toString("utf8");
+
+    const appAuth = createAppAuth({
+      id: config.github().app_id,
+      privateKey: keyString,
+      clientId: config.github().client_id,
+      clientSecret: config.github().client_secret,
+      installationId,
+    });
+
+    AUTH_CACHE[id] = appAuth;
+  }
+
+  return AUTH_CACHE[id];
+}
+
+export async function getInstallationToken(
+  installationId: number,
+  repositoryId: number
+): Promise<InstallationTokenResponse> {
+  const appAuth = getAppAuth(installationId);
+
+  const tokenRes = await appAuth({
+    type: "installation",
+    permissions: {},
+    repositoryIds: [repositoryId],
+  });
+  const token = tokenRes.token;
+  const expiresAt = new Date(((tokenRes as unknown) as any).expiresAt);
+
+  return {
+    token,
+    expiresAt,
+  };
+}
+
+export async function getAppJwt(): Promise<string> {
+  const appAuth = getAppAuth();
+  const token = await appAuth({ type: "app" });
+  return token.token;
+}
+
+async function listInstallations(): Promise<any> {}
 
 function queryToTokenResponse(res: qs.ParsedUrlQuery): AccessTokenResponse {
   if (res.error) {

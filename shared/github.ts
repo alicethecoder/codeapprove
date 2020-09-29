@@ -3,7 +3,7 @@ import { graphql } from "@octokit/graphql";
 import {
   UsersGetAuthenticatedResponseData,
   PullsGetResponseData,
-  PullsListCommitsResponseData
+  PullsListCommitsResponseData,
 } from "@octokit/types";
 import parseDiff from "parse-diff";
 
@@ -76,8 +76,8 @@ export class Github {
     this.octokit = new Octokit({ auth: token, previews: PREVIEWS });
     this.gql = this.gql.defaults({
       headers: {
-        authorization: `token ${token}`
-      }
+        authorization: `token ${token}`,
+      },
     });
   }
 
@@ -113,16 +113,18 @@ export class Github {
     // List users from the repo
     const collabs = await this.octokit.repos.listCollaborators({
       owner,
-      repo
+      repo,
     });
 
     // Filter users for the prefix
-    const collabsFiltered = collabs.data.filter(x => x.login.includes(prefix));
+    const collabsFiltered = collabs.data.filter((x) =>
+      x.login.includes(prefix)
+    );
 
     // List random GitHub users
     const random = await this.octokit.search.users({
       q: prefix,
-      per_page: 5
+      per_page: 5,
     });
 
     const res: UserSearchItem[] = [];
@@ -140,22 +142,33 @@ export class Github {
         login: c.login,
         avatar_url: c.avatar_url,
         collaborator: true,
-        access_level
+        access_level,
       });
     }
 
     for (const c of random.data.items) {
-      if (!res.some(x => x.login === c.login)) {
+      if (!res.some((x) => x.login === c.login)) {
         res.push({
           login: c.login,
           avatar_url: c.avatar_url,
           collaborator: false,
-          access_level: "none"
+          access_level: "none",
         });
       }
     }
 
     return res;
+  }
+
+  async getPullRequestMetadata(
+    owner: string,
+    repo: string,
+    pull_number: number
+  ) {
+    await this.assertAuth();
+
+    const res = await this.octokit.pulls.get({ owner, repo, pull_number });
+    return res.data;
   }
 
   async getPullRequest(
@@ -165,31 +178,22 @@ export class Github {
   ): Promise<PullRequestData> {
     await this.assertAuth();
 
-    const pr = await this.octokit.pulls.get({
-      owner,
-      repo,
-      pull_number
-    });
+    const pr = await this.getPullRequestMetadata(owner, repo, pull_number);
 
     // The label is "owner:branch" so that this works with forks as well
-    const diffs = await this.getDiff(
-      owner,
-      repo,
-      pr.data.base.label,
-      pr.data.head.label
-    );
+    const diffs = await this.getDiff(owner, repo, pr.base.label, pr.head.label);
 
     const commits = await this.octokit.pulls.listCommits({
       owner,
       repo,
-      pull_number
+      pull_number,
     });
 
     // TODO: Diff should be separate
     return {
-      pr: Object.freeze(pr.data),
+      pr: Object.freeze(pr),
       commits: freezeArray(commits.data),
-      diffs: freezeArray(diffs)
+      diffs: freezeArray(diffs),
     };
   }
 
@@ -210,8 +214,8 @@ export class Github {
         base,
         head,
         mediaType: {
-          format: "diff"
-        }
+          format: "diff",
+        },
       }
     );
 
@@ -230,7 +234,7 @@ export class Github {
     line: number
   ) {
     const diff = await this.getDiff(owner, repo, base, head);
-    const fileDiff = diff.find(f => f.from === file);
+    const fileDiff = diff.find((f) => f.from === file);
     if (!fileDiff) {
       return -1;
     }
@@ -307,12 +311,18 @@ export class Github {
         owner,
         repo,
         path,
-        ref
+        ref,
       }
     );
 
     if (data.encoding === "base64") {
-      return atob(data.content);
+      if (window && window.atob) {
+        // Browser
+        return window.atob(data.content);
+      } else {
+        // Node
+        return new Buffer(data.content, "base64").toString("utf-8");
+      }
     }
 
     console.warn("Unknown encoding :" + data.encoding);
@@ -324,18 +334,18 @@ export class Github {
 
     const installRes = await this.octokit.apps.listInstallationsForAuthenticatedUser();
     const installation = installRes.data.installations.find(
-      i => i.app_id === this.githubAppId
+      (i) => i.app_id === this.githubAppId
     );
 
     if (!installation) {
       return {
-        installed: false
+        installed: false,
       };
     }
 
     const repoRes = await this.octokit.apps.listInstallationReposForAuthenticatedUser(
       {
-        installation_id: installation.id
+        installation_id: installation.id,
       }
     );
 
@@ -343,11 +353,11 @@ export class Github {
       installed: true,
       installation: {
         id: installation.id,
-        url: installation.html_url
+        url: installation.html_url,
       },
-      repositories: repoRes.data.repositories.map(r => {
+      repositories: repoRes.data.repositories.map((r) => {
         return { full_name: r.full_name };
-      })
+      }),
     };
 
     return res;
@@ -404,7 +414,7 @@ export class Github {
             }
           }
         }
-      }`
+      }`,
       })
     );
 

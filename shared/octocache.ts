@@ -1,4 +1,3 @@
-// TODO: Can this whole thing be a plugin?
 import { OctokitResponse } from "@octokit/types";
 
 type OctokitFunction<T, R> = (params: T) => Promise<OctokitResponse<R>>;

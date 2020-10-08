@@ -19,8 +19,7 @@ export interface ReviewMetadata {
   };
 }
 
-// TODO:
-// - Need information about what is up to date (comment shas, etc)
+// TODO: Need information about what is up to date (comment shas, etc)
 export interface Review {
   metadata: ReviewMetadata;
   reviewers: Record<string, boolean>;
@@ -28,9 +27,6 @@ export interface Review {
   comments: Comment[];
 }
 
-// TODO:
-// - Should not need "side" since the sha should determine that
-// - Need two copies of all args - original and current
 export interface ThreadPositionArgs {
   file: string;
   sha: string;

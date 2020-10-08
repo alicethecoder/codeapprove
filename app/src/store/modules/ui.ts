@@ -5,7 +5,6 @@ export interface Message {
   text: string;
 }
 
-// TODO: Namespacing?
 @Module({
   name: "ui"
 })

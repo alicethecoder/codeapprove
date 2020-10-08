@@ -224,7 +224,6 @@ export class Github {
     return parseDiff(data);
   }
 
-  // TODO: Move this somewhere the server can get to it
   async translateLineNumber(
     owner: string,
     repo: string,

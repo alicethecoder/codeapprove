@@ -25,7 +25,6 @@ const SortByTimestamp = function(a: Comment, b: Comment) {
   return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
 };
 
-// TODO: Namespacing?
 @Module({
   name: "review"
 })
@@ -141,13 +140,9 @@ export default class ReviewModule extends VuexModule {
         const comments = snap.docs.map(doc => doc.data() as Comment);
         this.context.commit("setComments", comments);
 
-        // TODO: We should actually sync this with the array instead
-        // TODO: Should we watch all events? This feels messy.
         snap.docChanges().forEach(chg => {
-          if (chg.type === "added") {
-            const comment = chg.doc.data() as Comment;
-            events.emit(NEW_COMMENT_EVENT, { threadId: comment.threadId });
-          }
+          const comment = chg.doc.data() as Comment;
+          events.emit(NEW_COMMENT_EVENT, { threadId: comment.threadId });
         });
       }
     );
@@ -227,7 +222,7 @@ export default class ReviewModule extends VuexModule {
   }): Promise<Thread> {
     console.log(`newThread(${JSON.stringify(opts)})`);
 
-    // TODO: Do something about this
+    // TODO: Need a cloud function that brings this up to date
     const prHead = this.review.metadata.head.sha;
     if (opts.args.sha !== prHead) {
       console.log(
@@ -241,8 +236,6 @@ export default class ReviewModule extends VuexModule {
       resolved: false,
       pendingResolved: false,
       draft: true,
-
-      // TODO: Is this right? Should they differ?
       currentArgs: ta,
       originalArgs: ta
     };
@@ -324,7 +317,6 @@ export default class ReviewModule extends VuexModule {
       lineContent: e.lineContent
     };
 
-    // TODO: Doing this inside the comment thread may help reactivity?
     let thread: Thread | null = this.threadByArgs(threadArgs);
     if (!thread) {
       thread = await this.newThread({

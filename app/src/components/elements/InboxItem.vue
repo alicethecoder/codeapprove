@@ -64,7 +64,6 @@ export default class InboxItem extends Vue {
     const d = new Date(time);
     const now = new Date();
 
-    // TODO: Make these all consts
     const locale = navigator.language || "en";
     const dateTimeFormat = new Intl.DateTimeFormat(locale, {
       month: "short",
@@ -78,7 +77,12 @@ export default class InboxItem extends Vue {
       minute: "numeric"
     });
 
-    if (now.getTime() - d.getTime() < 24 * 60 * 60 * 1000) {
+    const onSameDay =
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+
+    if (onSameDay) {
       return timeFormat.format(d);
     } else {
       return dateTimeFormat.format(d);

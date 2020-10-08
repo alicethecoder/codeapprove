@@ -289,11 +289,9 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   private github!: Github;
 
-  // TODO: Put these in a "UI" object
   public usersearching = false;
   public loading = true;
 
-  // TODO: These should be one state object
   public prData: PullRequestData | null = null;
   public prChanges: PullRequestChange[] | null = null;
   public meta!: ReviewMetadata;
@@ -395,7 +393,6 @@ export default class PullRequest extends Mixins(EventEnhancer)
     this.activeFileIndex = -1;
   }
 
-  // TODO: The head/base state should probably be in the Vuex module
   public async onBaseSelected(base: string) {
     this.reloadDiff(base, this.reviewModule.reviewState.head);
   }
@@ -503,7 +500,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
         (thread.currentArgs.sha === this.reviewModule.reviewState.head &&
           change.file.to === thread.currentArgs.file);
 
-      // TODO: Jump to specific file
+      // TODO: Jump to specific line
       if (match) {
         console.log(`goToThread: jumping to index ${i}`);
         this.setActiveChangeEntry(i);

@@ -280,14 +280,16 @@ export default class CommentThread extends Mixins(EventEnhancer)
       minute: "numeric"
     });
 
-    const dateStr = dateFormat.format(date);
-    const todayStr = dateFormat.format(today);
+    const onSameDay =
+      date.getFullYear() === today.getFullYear() &&
+      date.getMonth() === today.getMonth() &&
+      date.getDate() === today.getDate();
 
     // If it's today, then we show a time instead
-    if (todayStr === dateStr) {
+    if (onSameDay) {
       return timeFormat.format(date).toLowerCase();
     } else {
-      return dateStr;
+      return dateFormat.format(date);
     }
   }
 

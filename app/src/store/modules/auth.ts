@@ -3,7 +3,6 @@ import { auth, functions } from "../../plugins/firebase";
 import { User } from "../../model/auth";
 import { AuthDelegate } from "../../../../shared/github";
 
-// TODO: Namespacing?
 @Module({
   name: "auth"
 })
@@ -66,7 +65,6 @@ export default class AuthModule extends VuexModule {
     return !!this.user;
   }
 
-  // TODO: Maybe this shouldn't be here if it doesn't directly touch the state
   @Action
   async startSignOut() {
     await auth().signOut();

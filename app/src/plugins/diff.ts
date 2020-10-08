@@ -221,8 +221,7 @@ export function changeLineMarker(change: parseDiff.Change): string {
 }
 
 export function changeContent(change: parseDiff.Change): string {
-  // Remove the + or the - from the start
-  // TODO: Why is this the case for "normal" lines
+  // Remove the '+', '-', or ' ' from the start of the line
   return change.content.substring(1);
 }
 

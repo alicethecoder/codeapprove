@@ -1,4 +1,4 @@
-// TODO: Closed
+// TODO: Handle closed but not merged
 export type Status = "approved" | "pending" | "merged";
 
 export interface InboxItemData {

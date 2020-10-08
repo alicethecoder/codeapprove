@@ -21,6 +21,10 @@ interface ReviewState {
   head: string;
 }
 
+const SortByTimestamp = function(a: Comment, b: Comment) {
+  return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+};
+
 // TODO: Namespacing?
 @Module({
   name: "review"
@@ -52,6 +56,9 @@ export default class ReviewModule extends VuexModule {
     comments: []
   };
 
+  public threadsUnsub: Function | null = null;
+  public commentsUnsub: Function | null = null;
+
   static reviewKey(metadata: ReviewMetadata) {
     const { owner, repo, number } = metadata;
     return `${owner}-${repo}-${number}`;
@@ -77,7 +84,9 @@ export default class ReviewModule extends VuexModule {
 
   get commentsByThread() {
     return (threadId: string) => {
-      return this.review.comments.filter(x => x.threadId === threadId);
+      return this.review.comments
+        .filter(x => x.threadId === threadId)
+        .sort(SortByTimestamp);
     };
   }
 
@@ -106,6 +115,8 @@ export default class ReviewModule extends VuexModule {
 
   @Action
   public async initializeReview(metadata: ReviewMetadata) {
+    this.context.commit("stopListening");
+
     this.context.commit("setReview", {
       metadata,
       reviewers: {},
@@ -118,30 +129,48 @@ export default class ReviewModule extends VuexModule {
       head: metadata.head.sha
     });
 
-    // TODO: Unsub
-    ReviewModule.threadsRef(metadata).onSnapshot(snap => {
+    const threadsUnsub = ReviewModule.threadsRef(metadata).onSnapshot(snap => {
       console.log("threads#onSnapshot", snap.size);
       const threads = snap.docs.map(doc => doc.data() as Thread);
       this.context.commit("setThreads", threads);
     });
 
-    // TODO: Unsub
-    ReviewModule.commentsRef(metadata).onSnapshot(snap => {
-      console.log("comments#onSnapshot", snap.size);
-      const comments = snap.docs.map(doc => doc.data() as Comment);
-      this.context.commit("setComments", comments);
+    const commentsUnsub = ReviewModule.commentsRef(metadata).onSnapshot(
+      snap => {
+        console.log("comments#onSnapshot", snap.size);
+        const comments = snap.docs.map(doc => doc.data() as Comment);
+        this.context.commit("setComments", comments);
 
-      // TODO: We should actually sync this with the array instead
-      // TODO: Should we watch all events? This feels messy.
-      snap.docChanges().forEach(chg => {
-        if (chg.type === "added") {
-          const comment = chg.doc.data() as Comment;
-          events.emit(NEW_COMMENT_EVENT, { threadId: comment.threadId });
-        }
-      });
-    });
+        // TODO: We should actually sync this with the array instead
+        // TODO: Should we watch all events? This feels messy.
+        snap.docChanges().forEach(chg => {
+          if (chg.type === "added") {
+            const comment = chg.doc.data() as Comment;
+            events.emit(NEW_COMMENT_EVENT, { threadId: comment.threadId });
+          }
+        });
+      }
+    );
 
-    // TODO: need a teardown method too
+    this.context.commit("setListeners", { commentsUnsub, threadsUnsub });
+  }
+
+  @Mutation
+  public setListeners(opts: {
+    commentsUnsub: Function | null;
+    threadsUnsub: Function | null;
+  }) {
+    this.commentsUnsub = opts.commentsUnsub;
+    this.threadsUnsub = opts.threadsUnsub;
+  }
+
+  @Mutation
+  public stopListening() {
+    this.threadsUnsub && this.threadsUnsub();
+    this.threadsUnsub = null;
+
+    this.commentsUnsub && this.commentsUnsub();
+    this.commentsUnsub = null;
   }
 
   @Mutation

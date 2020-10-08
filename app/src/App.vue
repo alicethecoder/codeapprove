@@ -30,7 +30,7 @@ import FooterBar from "@/components/elements/FooterBar.vue";
 import ProgressBar from "@/components/elements/ProgressBar.vue";
 import MessageStack from "@/components/elements/MessageStack.vue";
 
-import { auth, remoteConfig } from "./plugins/firebase";
+import { analytics, auth, remoteConfig } from "./plugins/firebase";
 import { config } from "./plugins/config";
 import * as events from "./plugins/events";
 
@@ -52,6 +52,10 @@ export default class App extends Vue {
   authUnsub?: firebase.Unsubscribe = undefined;
 
   created() {
+    // Initialize Firebase Analytics (built-in events)
+    analytics();
+
+    // TODO: This should be in the auth module itself
     this.authUnsub = auth().onAuthStateChanged(user => {
       if (!user) {
         this.authModule.setUser(null);

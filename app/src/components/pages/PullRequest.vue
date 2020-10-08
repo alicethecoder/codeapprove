@@ -194,8 +194,8 @@
         <span class="font-bold text-lg mr-2">Comments</span>
         <LabeledSelect
           :label="'Filter'"
-          :keys="['all', 'resolved', 'unresolved']"
-          :values="['all', 'resolved', 'unresolved']"
+          :keys="['unresolved', 'resolved', 'all']"
+          :values="['unresolved', 'resolved', 'all']"
           @selected="threadFilter = $event.key"
         />
       </div>
@@ -299,7 +299,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
   public meta!: ReviewMetadata;
 
   public activeFileIndex = -1;
-  public threadFilter = "all";
+  public threadFilter = "unresolved";
 
   async mounted() {
     this.github = new Github(

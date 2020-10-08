@@ -7,6 +7,10 @@ import "firebase/remote-config";
 
 import { config } from "./config";
 
+export function analytics(): firebase.analytics.Analytics {
+  return app().analytics();
+}
+
 export function auth(): firebase.auth.Auth {
   return app().auth();
 }

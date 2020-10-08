@@ -40,8 +40,11 @@
       <div v-for="(comment, index) in comments" :key="index" class="flex p-2">
         <img class="flex-none avatar mt-1 mr-4" :src="comment.photoURL" />
         <div class="flex-grow">
-          <div class="inline-flex items-center">
+          <div class="inline-flex flex-row items-baseline">
             <span class="font-bold mr-2">{{ comment.username }}</span>
+            <span class="mr-2 text-wht-md text-sm">
+              {{ formatTimestamp(comment.timestamp) }}
+            </span>
             <span v-if="comment.draft" class="text-wht-md text-sm"
               >(draft)</span
             >
@@ -258,6 +261,34 @@ export default class CommentThread extends Mixins(EventEnhancer)
 
   public goToLine() {
     this.$emit("goto");
+  }
+
+  public formatTimestamp(timestamp: string): string {
+    const today = new Date();
+    const date = new Date(timestamp);
+    const locale = navigator.language || "en-US";
+
+    // Ex: "Sep 20"
+    const dateFormat = new Intl.DateTimeFormat(locale, {
+      month: "short",
+      day: "2-digit"
+    });
+
+    // Ex: "9:01 AM"
+    const timeFormat = new Intl.DateTimeFormat(locale, {
+      hour: "numeric",
+      minute: "numeric"
+    });
+
+    const dateStr = dateFormat.format(date);
+    const todayStr = dateFormat.format(today);
+
+    // If it's today, then we show a time instead
+    if (todayStr === dateStr) {
+      return timeFormat.format(date).toLowerCase();
+    } else {
+      return dateStr;
+    }
   }
 
   private unfocus() {

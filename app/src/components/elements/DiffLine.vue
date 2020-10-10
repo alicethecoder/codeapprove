@@ -29,10 +29,7 @@
         :line="rendered.left.number"
         :sha="getThreadSha('left')"
         :threadId="getThreadId('left')"
-        @cancel="
-          drafting.left = false;
-          hovered.left = false;
-        "
+        @cancel="onCommentCancel('left')"
       />
     </div>
 
@@ -63,10 +60,7 @@
         :line="rendered.right.number"
         :sha="getThreadSha('right')"
         :threadId="getThreadId('right')"
-        @cancel="
-          drafting.right = false;
-          hovered.right = false;
-        "
+        @cancel="onCommentCancel('right')"
       />
     </div>
   </div>
@@ -94,7 +88,7 @@ import {
   renderChange,
   RenderedChange
 } from "../../plugins/diff";
-import { AddCommentEvent } from "../../plugins/events";
+import * as events from "../../plugins/events";
 import { DiffLineAPI } from "../api";
 
 @Component({
@@ -128,10 +122,26 @@ export default class DiffLine extends Mixins(EventEnhancer)
   public active = false;
 
   mounted() {
+    events.on(events.NEW_THREAD_EVENT, this.onNewThread);
     this.loadComments();
   }
 
-  public handleEvent(e: Partial<AddCommentEvent>) {
+  destroyed() {
+    events.off(events.NEW_THREAD_EVENT, this.onNewThread);
+  }
+
+  private onNewThread(event: events.NewThreadEvent) {
+    const matchesLeft = this.getThreadId("left") === event.threadId;
+    const matchesRight = this.getThreadId("right") === event.threadId;
+
+    if (matchesLeft || matchesRight) {
+      console.log(`onNewThread: matches ${event.threadId}`);
+      this.loadThreads();
+      this.loadComments();
+    }
+  }
+
+  public handleEvent(e: Partial<events.AddCommentEvent>) {
     console.log("DiffLine#handleEvent");
     const base = this.reviewModule.reviewState.base;
     const side: Side = e.sha === base ? "left" : "right";
@@ -161,6 +171,25 @@ export default class DiffLine extends Mixins(EventEnhancer)
       this.drafting.right = true;
     } else {
       this.drafting.left = true;
+    }
+  }
+
+  public onCommentCancel(side: Side) {
+    this.hovered[side] = false;
+    this.drafting[side] = false;
+  }
+
+  public loadThreads() {
+    const leftId = this.getThreadId("left");
+    if (leftId !== null) {
+      this.threads.left = this.reviewModule.threadById(leftId);
+      this.drafting.left = false;
+    }
+
+    const rightId = this.getThreadId("right");
+    if (rightId !== null) {
+      this.threads.right = this.reviewModule.threadById(rightId);
+      this.drafting.right = false;
     }
   }
 

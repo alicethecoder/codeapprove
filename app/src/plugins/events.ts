@@ -21,6 +21,11 @@ export interface NewCommentEvent {
   threadId: string;
 }
 
+export const NEW_THREAD_EVENT = "new-thread";
+export interface NewThreadEvent {
+  threadId: string;
+}
+
 export const PAGE_VISIBILITY_EVENT = "page-visibility";
 export interface PageVisibilityEvent {
   visible: boolean;

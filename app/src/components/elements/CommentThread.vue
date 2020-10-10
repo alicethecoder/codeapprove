@@ -127,11 +127,6 @@ import * as firebase from "firebase/app";
 
 import { EventEnhancer } from "../../components/mixins/EventEnhancer";
 import MarkdownContent from "@/components/elements/MarkdownContent.vue";
-import {
-  AddCommentEvent,
-  ADD_COMMENT_EVENT,
-  NEW_COMMENT_EVENT
-} from "../../plugins/events";
 import { Thread, ThreadPositionArgs, Comment } from "../../model/review";
 import AuthModule from "../../store/modules/auth";
 import ReviewModule from "../../store/modules/review";
@@ -167,7 +162,7 @@ export default class CommentThread extends Mixins(EventEnhancer)
   draftComment: string = "";
 
   mounted() {
-    events.on(NEW_COMMENT_EVENT, this.onNewComment);
+    events.on(events.NEW_COMMENT_EVENT, this.onNewComment);
     this.loadComments();
 
     if (this.mode === "inline" && this.noComments) {
@@ -179,7 +174,7 @@ export default class CommentThread extends Mixins(EventEnhancer)
   }
 
   destroyed() {
-    events.off(NEW_COMMENT_EVENT, this.onNewComment);
+    events.off(events.NEW_COMMENT_EVENT, this.onNewComment);
   }
 
   get hotKeyMap(): KeyMap {
@@ -223,7 +218,7 @@ export default class CommentThread extends Mixins(EventEnhancer)
     console.log(`CommendThread#addComment(${resolve})`);
 
     const sha = this.thread ? this.thread.currentArgs.sha : this.sha;
-    const partialEvt: Partial<AddCommentEvent> = {
+    const partialEvt: Partial<events.AddCommentEvent> = {
       content: this.draftComment,
       line: this.line,
       resolve: resolve,

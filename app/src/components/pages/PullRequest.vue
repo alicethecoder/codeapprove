@@ -53,8 +53,9 @@
         {{ drafts.length }} draft comments</span
       >
       <span class="flex-grow"><!-- spacer --></span>
-      <!-- TODO: Discard is unimplemented -->
-      <button class="btn btn-red ml-2">Discard</button>
+      <button class="btn btn-red ml-2" @click.prevent="discardDrafts()">
+        Discard
+      </button>
       <button class="btn btn-blue ml-2" @click.prevent="sendDrafts(false)">
         Send
       </button>
@@ -364,6 +365,12 @@ export default class PullRequest extends Mixins(EventEnhancer)
     this.reviewModule.handleAddCommentEvent({ e: finalEvent, user });
   }
 
+  public async discardDrafts() {
+    await this.reviewModule.discardDraftComments({
+      username: this.authModule.assertUser.username
+    });
+  }
+
   public async sendDrafts(approve: boolean) {
     const me = this.authModule.assertUser.username;
     const isReviewer = this.reviewModule.review.reviewers[me] !== undefined;
@@ -376,7 +383,9 @@ export default class PullRequest extends Mixins(EventEnhancer)
       this.setMyApproval(false);
     }
 
-    await this.reviewModule.sendDraftComments();
+    await this.reviewModule.sendDraftComments({
+      username: this.authModule.assertUser.username
+    });
   }
 
   public onReviewerSelected(event: { login: string }) {

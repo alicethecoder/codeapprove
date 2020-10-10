@@ -13,7 +13,6 @@ import {
   ThreadArgs
 } from "@/model/review";
 import * as events from "../../plugins/events";
-import { NEW_COMMENT_EVENT, AddCommentEvent } from "../../plugins/events";
 import { firestore } from "../../plugins/firebase";
 
 interface ReviewState {
@@ -132,6 +131,11 @@ export default class ReviewModule extends VuexModule {
       console.log("threads#onSnapshot", snap.size);
       const threads = snap.docs.map(doc => doc.data() as Thread);
       this.context.commit("setThreads", threads);
+
+      snap.docChanges().forEach(chg => {
+        const thread = chg.doc.data() as Thread;
+        events.emit(events.NEW_THREAD_EVENT, { threadId: thread.id });
+      });
     });
 
     const commentsUnsub = ReviewModule.commentsRef(metadata).onSnapshot(
@@ -142,7 +146,7 @@ export default class ReviewModule extends VuexModule {
 
         snap.docChanges().forEach(chg => {
           const comment = chg.doc.data() as Comment;
-          events.emit(NEW_COMMENT_EVENT, { threadId: comment.threadId });
+          events.emit(events.NEW_COMMENT_EVENT, { threadId: comment.threadId });
         });
       }
     );
@@ -217,6 +221,7 @@ export default class ReviewModule extends VuexModule {
 
   @Action
   public async newThread(opts: {
+    username: string;
     args: ThreadPositionArgs;
     ca: ThreadContentArgs;
   }): Promise<Thread> {
@@ -233,6 +238,7 @@ export default class ReviewModule extends VuexModule {
     const ta: ThreadArgs = { ...opts.args, ...opts.ca };
     const thread: Thread = {
       id: uuid.v4(),
+      username: opts.username,
       resolved: false,
       pendingResolved: false,
       draft: true,
@@ -275,11 +281,41 @@ export default class ReviewModule extends VuexModule {
   }
 
   @Action
-  public async sendDraftComments() {
-    // TODO: Only update MY drafts!
+  public async discardDraftComments(opts: { username: string }) {
     const batch = firestore().batch();
 
-    for (const thread of this.review.threads) {
+    const draftThreads = this.review.threads
+      .filter(t => t.draft)
+      .filter(t => t.username === opts.username);
+
+    for (const thread of draftThreads) {
+      batch.delete(
+        ReviewModule.threadsRef(this.review.metadata).doc(thread.id)
+      );
+    }
+
+    const draftComments = this.review.comments
+      .filter(c => c.draft)
+      .filter(c => c.username === opts.username);
+
+    for (const comment of draftComments) {
+      batch.delete(
+        ReviewModule.commentsRef(this.review.metadata).doc(comment.id)
+      );
+    }
+
+    await batch.commit();
+  }
+
+  @Action
+  public async sendDraftComments(opts: { username: string }) {
+    const batch = firestore().batch();
+
+    const draftThreads = this.review.threads
+      .filter(t => t.draft)
+      .filter(t => t.username === opts.username);
+
+    for (const thread of draftThreads) {
       batch.update(
         ReviewModule.threadsRef(this.review.metadata).doc(thread.id),
         {
@@ -289,7 +325,11 @@ export default class ReviewModule extends VuexModule {
       );
     }
 
-    for (const comment of this.review.comments) {
+    const draftComments = this.review.comments
+      .filter(c => c.draft)
+      .filter(t => t.username === opts.username);
+
+    for (const comment of draftComments) {
       batch.update(
         ReviewModule.commentsRef(this.review.metadata).doc(comment.id),
         {
@@ -303,7 +343,7 @@ export default class ReviewModule extends VuexModule {
 
   @Action
   public async handleAddCommentEvent(opts: {
-    e: AddCommentEvent;
+    e: events.AddCommentEvent;
     user: CommentUser;
   }) {
     const e = opts.e;
@@ -320,6 +360,7 @@ export default class ReviewModule extends VuexModule {
     let thread: Thread | null = this.threadByArgs(threadArgs);
     if (!thread) {
       thread = await this.newThread({
+        username: opts.user.username,
         args: threadArgs,
         ca: threadContentArgs
       });

@@ -41,6 +41,7 @@ export type ThreadArgs = ThreadPositionArgs & ThreadContentArgs;
 
 export interface Thread {
   id: string;
+  username: string;
   draft: boolean;
   resolved: boolean;
   pendingResolved: boolean;

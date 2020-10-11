@@ -4,7 +4,7 @@
     class="flex items-center dark-shadow text-purple-300 font-bold py-4 px-8 bg-dark-2"
   >
     <font-awesome-icon icon="code-branch" size="lg" class="mr-4" />
-    <router-link to="/"><span class="text-xl">CodeApprove</span></router-link>
+    <router-link to="/"><h1 class="text-xl">CodeApprove</h1></router-link>
 
     <span class="flex-grow"><!-- spacer --></span>
 

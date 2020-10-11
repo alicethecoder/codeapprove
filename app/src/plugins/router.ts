@@ -42,7 +42,12 @@ const router = new VueRouter({
       path: "/pricing",
       component: Pricing
     }
-  ]
+  ],
+  scrollBehavior(to, from, savedPosition) {
+    // Always scroll to top
+    // See: https://router.vuejs.org/guide/advanced/scroll-behavior.html
+    return { x: 0, y: 0 };
+  }
 });
 
 router.beforeEach((to, from, next) => {

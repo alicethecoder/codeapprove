@@ -17,7 +17,7 @@
       <div class="grid grid-cols-3 gap-3">
         <div class="col-span-2">
           <div class="mt-8">
-            <h2 class="font-bold text-2xl mb-2">Incoming</h2>
+            <h2 class="font-bold text-xl mb-2">Incoming</h2>
             <p v-if="inbox.length === 0" class="text-lg">
               No code to review ... snack time!
             </p>
@@ -30,7 +30,7 @@
           </div>
 
           <div class="mt-8">
-            <h2 class="font-bold text-2xl mb-2">Outgoing</h2>
+            <h2 class="font-bold text-xl mb-2">Outgoing</h2>
             <p v-if="outbox.length === 0" class="text-lg">
               There's nothing here ... time to write some more code!
             </p>

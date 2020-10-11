@@ -11,7 +11,7 @@
     </div>
 
     <!-- Right-aligned -->
-    <div class="above text-white text-right">
+    <div class="hidden lg:inline above text-white text-right">
       <span class="flex-grow"><!-- spacer --></span>
       <font-awesome-icon icon="keyboard" class="mr-2" />
       <span>Shortcuts: Alt + /</span>

@@ -6,7 +6,7 @@
     <!-- Title of PR, branches, etc -->
     <div class="mb-4 flex flex-row items-center">
       <div>
-        <h3 class="font-bold text-xl">
+        <h2 class="font-bold text-xl">
           {{ meta.owner }}/{{ meta.repo }} (<a
             class="text-purple-300 hover:underline"
             :href="
@@ -15,7 +15,7 @@
             target="_blank"
             >#{{ meta.number }}</a
           >)
-        </h3>
+        </h2>
         <p>
           merge <code>{{ prData.pr.head.label }}</code> into
           <code>{{ prData.pr.base.label }}</code>
@@ -148,7 +148,7 @@
     <!-- Changes -->
     <div class="mt-12">
       <div class="flex flex-row items-center">
-        <span class="font-bold text-lg">Changes</span>
+        <h2 class="font-bold text-xl">Changes</h2>
         <span class="flex-grow"><!-- spacer --></span>
 
         <!-- Select base commit -->
@@ -192,7 +192,7 @@
     <!-- Comments -->
     <div class="mt-12">
       <div class="flex flex-row items-center mb-2">
-        <span class="font-bold text-lg mr-2">Comments</span>
+        <h2 class="font-bold text-xl mr-2">Comments</h2>
         <LabeledSelect
           :label="'Filter'"
           :keys="['unresolved', 'resolved', 'all']"

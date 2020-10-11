@@ -1,15 +1,11 @@
 module.exports = {
   important: false,
   theme: {
-    // fontFamily: {
-    //   display: ['Gilroy', 'sans-serif'],
-    //   body: ['Graphik', 'sans-serif'],
-    // },
-    // extend: {
-    //   colors: {
-    //     cyan: '#9cdbff',
-    //   },
-    // }
+    fontFamily: {
+      // TODO: Probably make these fall back on the standards: https://tailwindcss.com/docs/font-family#app
+      display: ["Rubik", "sans-serif"],
+      body: ["Roboto", "sans-serif"]
+    },
     extend: {
       colors: {
         dark: {

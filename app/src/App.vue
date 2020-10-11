@@ -97,14 +97,15 @@ export default class App extends Vue {
 </script>
 
 <style lang="postcss">
-@import url("https://fonts.googleapis.com/css2?family=Lato&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Rubik&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto&display=swap");
 
 body {
   @apply text-wht-brt bg-dark-1;
 }
 
 #app {
-  font-family: "Lato", Helvetica, Arial, sans-serif;
+  @apply font-body;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -116,6 +117,20 @@ body {
 .btn:focus {
   outline: none;
 }
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  @apply font-display;
+}
+
+/* pre,
+code {
+  @apply font-code;
+} */
 
 textarea:focus,
 input:focus {
@@ -147,13 +162,13 @@ input:focus {
   @apply font-bold;
   @apply flex flex-row items-center;
   @apply rounded border-2;
-  @apply text-2xl;
+  @apply text-xl;
   @apply px-2 py-1;
 }
 
 @screen lg {
   .btn-cta {
-    @apply text-3xl;
+    @apply text-2xl;
     @apply px-4 py-2;
   }
 }
@@ -161,7 +176,7 @@ input:focus {
 @screen xl {
   .btn-cta {
     @apply rounded-lg border-4;
-    @apply text-4xl;
+    @apply text-3xl;
     @apply px-6 py-3;
   }
 }

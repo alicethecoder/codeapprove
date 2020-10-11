@@ -14,11 +14,10 @@
       <span class="text-lg mr-2">{{ item.title }}</span>
     </router-link>
     <span class="flex-grow"><!-- spacer --></span>
-    <span class="text-md"
-      ><font-awesome-icon icon="history" class="mr-1" />{{
-        renderTime(item.updated)
-      }}</span
-    >
+    <span class="text-md">
+      {{ renderTime(item.updated) }}
+      <font-awesome-icon icon="history" class="ml-1" />
+    </span>
   </div>
 </template>
 

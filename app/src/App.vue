@@ -145,8 +145,8 @@ input:focus {
 
 .btn-cta {
   @apply font-bold;
-  @apply rounded border-2;
   @apply flex flex-row items-center;
+  @apply rounded border-2;
   @apply text-2xl;
   @apply px-2 py-1;
 }

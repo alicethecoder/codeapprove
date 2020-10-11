@@ -5,7 +5,8 @@
     "build:watch": "tsc -w",
     "format": "prettier --write src/*.ts src/**/*.ts ../shared/*.ts",
     "emulate": "firebase emulators:start --only \"hosting,functions\"",
-    "serve": "concurrently \"npm run build:watch\" \"npm run emulate\"",
+    "smee": "smee --port 5001 --path /codeapprove-dev/us-central1/githubWebhook --url https://smee.io/XeU8k21RBs4gvf",
+    "serve": "concurrently \"npm run build:watch\" \"npm run smee\" \"npm run emulate\"",
     "deploy": "firebase deploy --only functions"
   },
   "engines": {
@@ -30,7 +31,7 @@
     "firebase-functions-test": "^0.2.0",
     "firebase-tools": "^8.6.0",
     "prettier": "^2.0.5",
-    "smee-client": "^1.1.0",
+    "smee-client": "^1.2.2",
     "ts-node": "^8.10.2",
     "typescript": "^3.8.0"
   },

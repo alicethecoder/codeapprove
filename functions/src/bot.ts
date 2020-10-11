@@ -1,9 +1,44 @@
 import { Application } from "probot";
+import * as admin from "firebase-admin";
 
 import * as config from "./config";
 import * as log from "./logger";
+import { Installation } from "../../shared/types";
 
 export function bot(app: Application) {
+  app.on("installation.created", async (context) => {
+    // Installation has been added
+    // TODO: Also respond to adding repos!
+    log.info("installation.created", context.payload);
+
+    const owner = context.payload.installation.account.login;
+    const installation_id = context.payload.installation.id;
+    for (const repo of context.payload.repositories) {
+      const name = repo.name;
+      const repo_id = repo.id;
+
+      const installation: Installation = {
+        installation_id,
+        repo_id,
+      };
+
+      // TODO: I don't really like the dash format, repo names can have dashes!
+      console.log(`Creating installation for ${owner}/${name}}`, installation);
+      await admin
+        .firestore()
+        .collection("installations")
+        .doc(`${owner}-${name}`)
+        .set(installation);
+    }
+  });
+
+  app.on("installation.deleted", async (context) => {
+    // Installation has been deleted
+    log.info("installation.deleted", context.payload);
+
+    // TODO: Implement
+  });
+
   app.on("push", async (context) => {
     // A new commit has been pushed to a branch.
     log.info("push", context.payload);

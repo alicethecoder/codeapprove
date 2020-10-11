@@ -57,6 +57,7 @@
                 v-for="repo in installation.repositories"
                 :key="repo.full_name"
               >
+                <font-awesome-icon :icon="['fab', 'github']" class="mr-2" />
                 <span class="text-lg">{{ repo.full_name }}</span>
               </li>
             </ul>

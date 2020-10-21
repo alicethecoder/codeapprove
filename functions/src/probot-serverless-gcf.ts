@@ -32,6 +32,12 @@ export function serverless(config: ProbotConfig, appFn: ProbotFn) {
     request: functions.https.Request,
     response: functions.Response
   ) => {
+    // Probot uses NODE_ENV === 'production' to disable this check but that's not set in GCF,
+    // so we disable it whenever we're not in the Functions emulator.
+    process.env.DISABLE_WEBHOOK_EVENT_CHECK = `${
+      process.env.FUNCIONS_EMULATOR !== "true"
+    }`;
+
     probot = probot || loadProbot(config, appFn);
 
     // 🤖 A friendly message

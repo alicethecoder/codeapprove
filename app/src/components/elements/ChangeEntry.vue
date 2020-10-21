@@ -11,11 +11,7 @@
       @click="toggle"
       class="flex p-2 font-bold items-center bg-dark-3 border-b border-dark-0"
     >
-      <font-awesome-icon
-        fixed-width
-        :icon="icon"
-        :class="{ invisible: isBinary }"
-      />
+      <font-awesome-icon fixed-width :icon="icon" />
       <span class="ml-2 text-wht-med">{{ title }}</span>
       <span
         class="text-sm text-purple-300 ml-4"
@@ -47,9 +43,7 @@
 
     <!-- Placeholder while loading -->
     <div v-if="loading" class="text-lg text-center bg-dark-2 text-brt-dim p-4">
-      <span v-if="tooBig"
-        >This diff is too large to render, please view it locally.</span
-      >
+      <span v-if="!canExpand">{{ cantExpandMessage }}</span>
       <span v-else>Loading...</span>
     </div>
 
@@ -172,8 +166,28 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
     this.bubbleUp(e);
   }
 
-  get tooBig() {
+  get tooBig(): boolean {
     return this.meta.additions + this.meta.deletions >= 1500;
+  }
+
+  get isBinary(): boolean {
+    return isBinaryFile(this.meta.from) || isBinaryFile(this.meta.to);
+  }
+
+  get canExpand(): boolean {
+    return !(this.tooBig || this.isBinary);
+  }
+
+  get cantExpandMessage(): string {
+    if (this.tooBig) {
+      return "This diff is too large to render, please view it locally.";
+    }
+
+    if (this.isBinary) {
+      return "Binary file.";
+    }
+
+    return "";
   }
 
   get hotKeyMap(): KeyMap {
@@ -185,10 +199,6 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
     let totalLength = 0;
     this.chunks.forEach(c => (totalLength += c.pairs.length));
     return totalLength;
-  }
-
-  get isBinary(): boolean {
-    return isBinaryFile(this.meta.from) || isBinaryFile(this.meta.to);
   }
 
   public activate() {
@@ -219,8 +229,8 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
       return;
     }
 
-    // Change is too large to display, so just infinite-load
-    if (this.tooBig) {
+    // Change cannot be expanded (too big, binary, etc), so just infinite-load
+    if (!this.canExpand) {
       this.loading = true;
       this.expanded = true;
       return;

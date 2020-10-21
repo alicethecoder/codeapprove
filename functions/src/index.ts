@@ -92,7 +92,7 @@ export const updateThreads = functions.https.onRequest(async (req, res) => {
 
     if (sha !== headSha) {
       console.log(`Updating thread ${thread.ref.id} from ${sha}`);
-      const newLine = await gh.translateLineNumber(
+      const newLine = await gh.translateLineNumberHeadMove(
         owner,
         repo,
         sha,
@@ -103,10 +103,11 @@ export const updateThreads = functions.https.onRequest(async (req, res) => {
 
       // TODO: What if newLine === -1?
       // TODO: What about updated file name and line content?
+      const newLineNumber = newLine.line;
       const newArgs = {
         sha: headSha,
-        line: newLine,
-        lineContent: newLine === -1 ? "" : lineContent,
+        line: newLineNumber,
+        lineContent: newLineNumber === -1 ? "" : lineContent,
         file: file,
       };
 

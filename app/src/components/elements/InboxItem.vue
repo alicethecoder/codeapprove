@@ -1,24 +1,25 @@
 <template>
-  <!-- TODO: Some of these classes should be outside -->
-  <div
-    class="flex items-center bg-dark-3 px-4 py-2 mb-4 border-dark-0 shadow dark-shadow rounded"
-  >
-    <router-link :to="`/pr/${item.owner}/${item.repo}/${item.number}`">
+  <router-link :to="`/pr/${item.owner}/${item.repo}/${item.number}`">
+    <!-- TODO: Some of these classes should be outside -->
+    <div
+      class="flex items-center bg-dark-3 px-4 py-2 mb-4 border-dark-0 shadow dark-shadow rounded"
+    >
+      <!-- TODO: Could use JS to keep these columns the same width dynamically instead of w-1/3 -->
       <span
         :class="statusTextColor(item.status)"
-        class="text-lg font-bold mr-4"
+        class="w-1/3 text-lg font-bold mr-4"
       >
         <font-awesome-icon :icon="statusIcon(item.status)" class="mr-2" />
         <span class="text-lg">{{ itemText(item) }}</span>
       </span>
       <span class="text-lg mr-2">{{ item.title }}</span>
-    </router-link>
-    <span class="flex-grow"><!-- spacer --></span>
-    <span class="text-md">
-      {{ renderTime(item.updated) }}
-      <font-awesome-icon icon="history" class="ml-1" />
-    </span>
-  </div>
+      <span class="flex-grow"><!-- spacer --></span>
+      <span class="text-md">
+        {{ renderTime(item.updated) }}
+        <font-awesome-icon icon="history" class="ml-1" />
+      </span>
+    </div>
+  </router-link>
 </template>
 
 <script lang="ts">

@@ -12,8 +12,8 @@
       ><span class="text-md">Sign In</span>
     </router-link>
 
-    <div v-if="signedIn" @click="showDropdown = true">
-      <div class="flex items-center">
+    <div v-if="signedIn">
+      <div class="flex items-center" @click="showDropdown = true">
         <img class="avatar" :src="photoURL" />
         <font-awesome-icon icon="caret-down" class="ml-2 text-wht-brt" />
       </div>

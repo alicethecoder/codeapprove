@@ -64,6 +64,11 @@ export interface AuthDelegate {
   refreshAuth(): Promise<any>;
 }
 
+export interface LineTranslation {
+  file: string;
+  line: number;
+}
+
 export class Github {
   private octokit!: Octokit;
   private gql: typeof graphql = graphql;
@@ -224,24 +229,92 @@ export class Github {
     return parseDiff(data);
   }
 
-  async translateLineNumber(
+  /**
+   * Translate a line between two commits, used as more commits are pushed
+   * onto the HEAD of the review.
+   * 
+   * @param owner repo owner.
+   * @param repo repo name.
+   * @param oldHead the original commit (where you know the line number).
+   * @param newHead the new commit (where you don't know the line number).
+   * @param file the file name (in the original commit).
+   * @param line the line number (in the original commit).
+   */
+  async translateLineNumberHeadMove(
     owner: string,
     repo: string,
-    base: string,
+    oldHead: string,
+    newHead: string,
+    file: string,
+    line: number
+  ): Promise<LineTranslation> {
+    // Diff the two commits against each other to determine what changed
+    const diff = await this.getDiff(owner, repo, oldHead, newHead);
+
+    // Find the file in the 'from' list
+    const fileDiff = diff.find((f) => f.from === file);
+    if (!fileDiff) {
+      return { file, line: -1 };
+    }
+
+    const newFileName = fileDiff.to || fileDiff.from || file;
+
+    // Calculate of how many lines are added/deleted (net) above the line
+    const nudge = this.calculateLineNudge(fileDiff, line);
+    return {
+      file: newFileName,
+      line: line + nudge,
+    }
+  }
+
+  /**
+   * Translate a line from a review as the BASE of the review changes.
+   * 
+   * @param owner the repo owner.
+   * @param repo the repo name.
+   * @param oldBase the previously known base commit.
+   * @param newBase the current base commit.
+   * @param head the current review head.
+   * @param file the file name.
+   * @param line the line number (as currently known in head).
+   */
+  async translateLineNumberBaseMove(
+    owner: string,
+    repo: string,
+    oldBase: string,
+    newBase: string,
     head: string,
     file: string,
     line: number
   ) {
-    const diff = await this.getDiff(owner, repo, base, head);
-    const fileDiff = diff.find((f) => f.from === file);
-    if (!fileDiff) {
-      return -1;
-    }
+    // Ex: 
+    // - Comment on line 40 at head
+    // - Base changes from aaa to bbb and adds 10 new lines at the start of the file
+    //   - What was Line 40 in our base is now Line 50 in our new base
+    // - Now the diff has to be recalculated because the base is different
+    //
+    // - TODO: I don't think this is all figured out
 
+    // First translate the line between the old base and the new base
+    const baseTranslation = await this.translateLineNumberHeadMove(owner, repo, oldBase, newBase, file, line);
+
+    // Now do a new translation based on the previous one
+    const headTranslation = await this.translateLineNumberHeadMove(owner, repo, newBase, head, 
+      baseTranslation.file, baseTranslation.line);
+
+    // TODO: Handle missing lines and deleted files!
+    return headTranslation;
+  }
+
+  /**
+   * Determine how far a line has moved within a diff by counting lines above it
+   * that have been added or deleted.
+   */
+  calculateLineNudge(fileDiff: parseDiff.File, line: number): number {
     // If the line in question is before the start of the diff, number is unchanged
     const firstLine = fileDiff.chunks[0].oldStart;
     if (line < firstLine) {
-      return line;
+      return 0;
     }
 
     // Keep track of how many lines are added/deleted (net) above the line
@@ -256,9 +329,11 @@ export class Github {
         switch (change.type) {
           case "normal":
             if (change.ln1 === line) {
-              return change.ln2;
+              // The diff tells us the exact new line number, so the nudge is the
+              // difference.
+              return change.ln2 - change.ln1;
             } else if (change.ln1 > line) {
-              return line + nudge;
+              return nudge;
             }
             break;
           case "add":
@@ -271,8 +346,8 @@ export class Github {
       }
     }
 
-    // If we get here it's off the end of the diff, just apply the nudge
-    return line + nudge;
+    // At this point the line is "off the end" of the diff so the nudge won't change
+    return nudge;
   }
 
   async getContentLines(

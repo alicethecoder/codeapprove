@@ -95,13 +95,12 @@ import { getFileLang } from "../../plugins/prism";
 
 import { Github } from "../../../../shared/github";
 
+import { Side, ThreadPair } from "../../model/review";
 import {
   ThreadPositionArgs,
   Thread,
-  Side,
-  ThreadPair,
   ThreadContentArgs
-} from "../../model/review";
+} from "../../../../shared/types";
 import {
   ChangePair,
   RenderedChangePair,

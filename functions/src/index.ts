@@ -11,7 +11,12 @@ import * as log from "./logger";
 import { serverless, ProbotConfig } from "./probot-serverless-gcf";
 import { bot } from "./bot";
 
-import { Installation } from "../../shared/types";
+import {
+  Installation,
+  Thread,
+  ThreadContentArgs,
+  ThreadArgs,
+} from "../../shared/types";
 import { Github } from "../../shared/github";
 
 const ax = api.getAxios();
@@ -35,6 +40,7 @@ export const githubWebhook = functions.https.onRequest(
 
 // TODO: Move this to be part of the probot
 export const updateThreads = functions.https.onRequest(async (req, res) => {
+  // TODO: Should not be hardcoded
   const owner = "hatboysam";
   const repo = "codeapprove";
   const number = 7;
@@ -86,8 +92,7 @@ export const updateThreads = functions.https.onRequest(async (req, res) => {
   const threadsSnap = await threadsRef.get();
 
   for (const thread of threadsSnap.docs) {
-    // TODO: Move thread type to shared
-    const data = thread.data();
+    const data = thread.data() as Thread;
     const { sha, file, line, lineContent } = data.currentArgs;
 
     if (sha !== headSha) {
@@ -104,7 +109,7 @@ export const updateThreads = functions.https.onRequest(async (req, res) => {
       // TODO: What if newLine === -1?
       // TODO: What about updated file name and line content?
       const newLineNumber = newLine.line;
-      const newArgs = {
+      const newArgs: ThreadArgs = {
         sha: headSha,
         line: newLineNumber,
         lineContent: newLineNumber === -1 ? "" : lineContent,

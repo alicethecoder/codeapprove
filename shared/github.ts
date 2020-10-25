@@ -232,7 +232,7 @@ export class Github {
   /**
    * Translate a line between two commits, used as more commits are pushed
    * onto the HEAD of the review.
-   * 
+   *
    * @param owner repo owner.
    * @param repo repo name.
    * @param oldHead the original commit (where you know the line number).
@@ -264,17 +264,16 @@ export class Github {
     return {
       file: newFileName,
       line: line + nudge,
-    }
+    };
   }
 
   /**
    * Translate a line from a review as the BASE of the review changes.
-   * 
+   *
    * @param owner the repo owner.
    * @param repo the repo name.
    * @param oldBase the previously known base commit.
    * @param newBase the current base commit.
-   * @param head the current review head.
    * @param file the file name.
    * @param line the line number (as currently known in head).
    */
@@ -283,27 +282,26 @@ export class Github {
     repo: string,
     oldBase: string,
     newBase: string,
-    head: string,
     file: string,
     line: number
   ) {
-    // Ex: 
-    // - Comment on line 40 at head
-    // - Base changes from aaa to bbb and adds 10 new lines at the start of the file
-    //   - What was Line 40 in our base is now Line 50 in our new base
-    // - Now the diff has to be recalculated because the base is different
-    //
-    // - TODO: I don't think this is all figured out
+    // TODO: This is extremely similar to the other method, DRY?
 
-    // First translate the line between the old base and the new base
-    const baseTranslation = await this.translateLineNumberHeadMove(owner, repo, oldBase, newBase, file, line);
+    // Diff the two commits against each other to determine what changed
+    const diff = await this.getDiff(owner, repo, oldBase, newBase);
 
-    // Now do a new translation based on the previous one
-    const headTranslation = await this.translateLineNumberHeadMove(owner, repo, newBase, head, 
-      baseTranslation.file, baseTranslation.line);
+    // Find the file in the 'to' list
+    const fileDiff = diff.find((f) => f.to === file);
+    if (!fileDiff) {
+      return { file, line: -1 };
+    }
 
-    // TODO: Handle missing lines and deleted files!
-    return headTranslation;
+    // Calculate of how many lines are added/deleted (net) above the line
+    const nudge = this.calculateLineNudge(fileDiff, line);
+    return {
+      file,
+      line: line + nudge,
+    };
   }
 
   /**
@@ -365,7 +363,8 @@ export class Github {
     const content = await this.getContent(owner, repo, path, ref);
     const lines = content.split("\n");
 
-    // File lines are one-indexed (start - 1) but end is exclusive
+    // File lines are 1-indexed in editors but 0-indexed in the array, hence start - 1
+    // end is exclusive
     const slice = lines.slice(start - 1, end);
     return slice;
   }

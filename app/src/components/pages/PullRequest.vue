@@ -253,7 +253,7 @@ import {
   Comment,
   ReviewMetadata,
   CommentUser
-} from "../../model/review";
+} from "../../../../shared/types";
 import AuthModule from "../../store/modules/auth";
 import {
   KeyMap,

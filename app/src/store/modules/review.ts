@@ -1,19 +1,21 @@
 import Vue from "vue";
 import { Module, VuexModule, Mutation, Action } from "vuex-module-decorators";
 import * as uuid from "uuid";
+import { threadMatch } from "@/model/review";
 import {
   Comment,
   CommentUser,
   Thread,
-  ThreadPositionArgs,
-  threadMatch,
   Review,
   ReviewMetadata,
   ThreadContentArgs,
-  ThreadArgs
-} from "@/model/review";
+  ThreadArgs,
+  ThreadPositionArgs
+} from "../../../../shared/types";
 import * as events from "../../plugins/events";
 import { firestore } from "../../plugins/firebase";
+
+type Listener = () => void;
 
 interface ReviewState {
   base: string;
@@ -54,8 +56,21 @@ export default class ReviewModule extends VuexModule {
     comments: []
   };
 
-  public threadsUnsub: Function | null = null;
-  public commentsUnsub: Function | null = null;
+  public listeners: { [key: string]: Listener | null } = {
+    comments: null,
+    threads: null
+  };
+
+  static forceConverter<T>(): firebase.firestore.FirestoreDataConverter<T> {
+    return {
+      toFirestore: (modelObject: T) => {
+        return modelObject;
+      },
+      fromFirestore: (snapshot, options) => {
+        return snapshot.data() as T;
+      }
+    };
+  }
 
   static reviewKey(metadata: ReviewMetadata) {
     const { owner, repo, number } = metadata;
@@ -69,11 +84,15 @@ export default class ReviewModule extends VuexModule {
   }
 
   static threadsRef(metadata: ReviewMetadata) {
-    return this.reviewRef(metadata).collection("threads");
+    return this.reviewRef(metadata)
+      .collection("threads")
+      .withConverter(this.forceConverter<Thread>());
   }
 
   static commentsRef(metadata: ReviewMetadata) {
-    return this.reviewRef(metadata).collection("comments");
+    return this.reviewRef(metadata)
+      .collection("comments")
+      .withConverter(this.forceConverter<Comment>());
   }
 
   get drafts() {
@@ -151,29 +170,35 @@ export default class ReviewModule extends VuexModule {
       }
     );
 
-    this.context.commit("setListeners", { commentsUnsub, threadsUnsub });
+    this.context.commit("setListeners", {
+      comments: commentsUnsub,
+      threads: threadsUnsub
+    });
   }
 
   @Mutation
   public setListeners(opts: {
-    commentsUnsub: Function | null;
-    threadsUnsub: Function | null;
+    comments: Listener | null;
+    threads: Listener | null;
   }) {
-    this.commentsUnsub = opts.commentsUnsub;
-    this.threadsUnsub = opts.threadsUnsub;
+    this.listeners.comments = opts.comments;
+    this.listeners.threads = opts.threads;
   }
 
   @Mutation
   public stopListening() {
-    this.threadsUnsub && this.threadsUnsub();
-    this.threadsUnsub = null;
-
-    this.commentsUnsub && this.commentsUnsub();
-    this.commentsUnsub = null;
+    for (const key of Object.keys(this.listeners)) {
+      const listener = this.listeners[key];
+      if (listener) {
+        listener();
+      }
+      this.listeners[key] = null;
+    }
   }
 
   @Mutation
   public setReview(review: Review) {
+    // TODO: Firebase
     this.review = review;
   }
 
@@ -200,16 +225,33 @@ export default class ReviewModule extends VuexModule {
     }
   }
 
-  @Mutation
+  @Action
   public pushReviewer(opts: { login: string; approved: boolean }) {
-    // Makes the new map key reactive
-    Vue.set(this.review.reviewers, opts.login, opts.approved);
+    // TODO: This is exactly the same as the method below
+    this.context.commit("setReviewer", opts);
+    return ReviewModule.reviewRef(this.review.metadata).set({
+      reviewers: this.review.reviewers
+    });
+  }
+
+  @Action
+  public removeReviewer(opts: { login: string }) {
+    // TODO: This is exactly the same as the method above
+    this.context.commit("setReviewer", opts);
+    return ReviewModule.reviewRef(this.review.metadata).set({
+      reviewers: this.review.reviewers
+    });
   }
 
   @Mutation
-  public removeReviewer(opts: { login: string }) {
-    // Makes the removed map key reactive
-    Vue.delete(this.review.reviewers, opts.login);
+  public setReviewer(opts: { login: string; approved?: boolean }) {
+    // TODO: Can this whole method just react to Firestore instead?
+    // Vue.set/delete makes the added/removed map key reactive
+    if (opts.approved !== undefined) {
+      Vue.set(this.review.reviewers, opts.login, opts.approved);
+    } else {
+      Vue.delete(this.review.reviewers, opts.login);
+    }
   }
 
   @Mutation

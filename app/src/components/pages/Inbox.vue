@@ -115,6 +115,7 @@ export default class Inbox extends Vue {
       return;
     }
 
+    // TODO: This data should be merged with some internal state about review status
     const login = this.authModule.assertUser.username;
     const assigned = await this.github.getAssignedPulls(login);
     const outgoing = await this.github.getOutgoingPulls(login);

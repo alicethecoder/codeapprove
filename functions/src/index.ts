@@ -11,12 +11,7 @@ import * as log from "./logger";
 import { serverless, ProbotConfig } from "./probot-serverless-gcf";
 import { bot } from "./bot";
 
-import {
-  Installation,
-  Thread,
-  ThreadContentArgs,
-  ThreadArgs,
-} from "../../shared/types";
+import { Installation, Thread, ThreadArgs } from "../../shared/types";
 import { Github } from "../../shared/github";
 
 const ax = api.getAxios();
@@ -30,6 +25,11 @@ function getProbotConfig(): ProbotConfig {
     privateKey: config.github().private_key_encoded,
   };
 }
+
+/**
+ * Review state management
+ */
+export { onReviewWrite, onThreadWrite } from "./review";
 
 /**
  * Probot app

@@ -87,7 +87,7 @@ export default class Pricing extends Vue {
   PLAN_FREE: Plan = {
     name: "Free",
     description:
-      "Try CodeApprove on one public repository. Free forever, no credit card required.",
+      "Try CodeApprove on one public repository in your org. Free forever, no credit card required.",
     price: 0,
     unit: "repo",
     subUnit: "(free)",

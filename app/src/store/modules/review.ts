@@ -10,14 +10,22 @@ import {
   ReviewMetadata,
   ThreadContentArgs,
   ThreadArgs,
-  ThreadPositionArgs
+  ThreadPositionArgs,
+  ReviewStatus
 } from "../../../../shared/types";
+import {
+  addReviewer,
+  removeReviewer,
+  addApprover,
+  removeApprover
+} from "../../../../shared/typeUtils";
 import * as events from "../../plugins/events";
+import firebase from "firebase/app";
 import { firestore } from "../../plugins/firebase";
 
 type Listener = () => void;
 
-interface ReviewState {
+interface ViewState {
   base: string;
   head: string;
 }
@@ -31,10 +39,15 @@ const SortByTimestamp = function(a: Comment, b: Comment) {
 })
 export default class ReviewModule extends VuexModule {
   // UI State related to the review (not persisted)
-  public reviewState: ReviewState = {
+  public viewState: ViewState = {
+    // What the user is viewing (not the actual base and head)
     base: "unknown",
     head: "unknown"
   };
+
+  // Threads and comments which are attached to the review
+  public threads: Thread[] = [];
+  public comments: Comment[] = [];
 
   // The review itself
   public review: Review = {
@@ -51,9 +64,11 @@ export default class ReviewModule extends VuexModule {
         label: "unknown:unknown"
       }
     },
-    reviewers: {},
-    threads: [],
-    comments: []
+    state: {
+      status: ReviewStatus.NEEDS_REVIEW,
+      reviewers: [],
+      approvers: []
+    }
   };
 
   public listeners: { [key: string]: Listener | null } = {
@@ -96,12 +111,12 @@ export default class ReviewModule extends VuexModule {
   }
 
   get drafts() {
-    return this.review.comments.filter(x => x.draft);
+    return this.comments.filter(x => x.draft);
   }
 
   get commentsByThread() {
     return (threadId: string) => {
-      return this.review.comments
+      return this.comments
         .filter(x => x.threadId === threadId)
         .sort(SortByTimestamp);
     };
@@ -109,7 +124,7 @@ export default class ReviewModule extends VuexModule {
 
   get threadById() {
     return (threadId: string) => {
-      return this.review.threads.find(x => x.id === threadId) || null;
+      return this.threads.find(x => x.id === threadId) || null;
     };
   }
 
@@ -118,41 +133,43 @@ export default class ReviewModule extends VuexModule {
       if (args === null) {
         return null;
       }
-      return this.review.threads.find(t => threadMatch(t, args)) || null;
+      return this.threads.find(t => threadMatch(t, args)) || null;
     };
   }
 
   get threadsByFileAndSha() {
     return (file: string, sha: string) => {
-      return this.review.threads.filter(
+      return this.threads.filter(
         x => x.currentArgs.file === file && x.currentArgs.sha === sha
       );
     };
   }
 
-  @Action
+  @Action({ rawError: true })
   public async initializeReview(metadata: ReviewMetadata) {
     this.context.commit("stopListening");
+    this.context.commit("setReviewMetadata", metadata);
 
-    this.context.commit("setReview", {
-      metadata,
-      reviewers: {},
-      threads: [],
-      comments: []
-    });
-
-    this.context.commit("setReviewState", {
+    this.context.commit("setViewState", {
       base: metadata.base.sha,
       head: metadata.head.sha
     });
 
+    const reviewUnsub = ReviewModule.reviewRef(metadata).onSnapshot(snap => {
+      console.log("review#onSnapshot");
+      const review = snap.data(); // TODO: Review Type
+
+      // TODO: Actually take the review data
+      // TODO: Unsub from this listener
+    });
+
     const threadsUnsub = ReviewModule.threadsRef(metadata).onSnapshot(snap => {
       console.log("threads#onSnapshot", snap.size);
-      const threads = snap.docs.map(doc => doc.data() as Thread);
+      const threads = snap.docs.map(doc => doc.data());
       this.context.commit("setThreads", threads);
 
       snap.docChanges().forEach(chg => {
-        const thread = chg.doc.data() as Thread;
+        const thread = chg.doc.data();
         events.emit(events.NEW_THREAD_EVENT, { threadId: thread.id });
       });
     });
@@ -197,71 +214,69 @@ export default class ReviewModule extends VuexModule {
   }
 
   @Mutation
-  public setReview(review: Review) {
+  public setReviewMetadata(metadata: ReviewMetadata) {
     // TODO: Firebase
-    this.review = review;
+    this.review.metadata = metadata;
   }
 
   @Mutation
-  public setReviewState(reviewState: ReviewState) {
-    this.reviewState = reviewState;
+  public setViewState(viewState: ViewState) {
+    this.viewState = viewState;
   }
 
   @Mutation
   public setThreads(threads: Thread[]) {
-    Vue.set(this.review, "threads", threads);
+    this.threads = threads;
   }
 
   @Mutation
   public setComments(comments: Comment[]) {
-    Vue.set(this.review, "comments", comments);
+    this.comments = comments;
   }
 
   @Mutation
   public setThreadPendingState(opts: { threadId: string; resolved: boolean }) {
-    const thread = this.review.threads.find(x => x.id === opts.threadId);
+    // TODO: This needs to propagate to Firestore
+    const thread = this.threads.find(x => x.id === opts.threadId);
     if (thread) {
       thread.pendingResolved = opts.resolved;
     }
   }
 
-  @Action
-  public pushReviewer(opts: { login: string; approved: boolean }) {
-    // TODO: This is exactly the same as the method below
+  @Action({ rawError: true })
+  public pushReviewer(opts: { login: string; approved?: boolean }) {
     this.context.commit("setReviewer", opts);
-    return ReviewModule.reviewRef(this.review.metadata).set({
-      reviewers: this.review.reviewers
-    });
-  }
 
-  @Action
-  public removeReviewer(opts: { login: string }) {
-    // TODO: This is exactly the same as the method above
-    this.context.commit("setReviewer", opts);
-    return ReviewModule.reviewRef(this.review.metadata).set({
-      reviewers: this.review.reviewers
-    });
+    // TODO: This may be overwriting the metadata based on outdated information,
+    //       maybe we only want to set the state?
+    return ReviewModule.reviewRef(this.review.metadata).set(this.review);
   }
 
   @Mutation
   public setReviewer(opts: { login: string; approved?: boolean }) {
     // TODO: Can this whole method just react to Firestore instead?
-    // Vue.set/delete makes the added/removed map key reactive
+
     if (opts.approved !== undefined) {
-      Vue.set(this.review.reviewers, opts.login, opts.approved);
+      addReviewer(this.review, opts.login);
     } else {
-      Vue.delete(this.review.reviewers, opts.login);
+      removeReviewer(this.review, opts.login);
+    }
+
+    if (opts.approved === true) {
+      addApprover(this.review, opts.login);
+    } else {
+      removeApprover(this.review, opts.login);
     }
   }
 
   @Mutation
   public setBaseAndHead(opts: { base: string; head: string }) {
     console.log(`review#setBaseAndHead(${opts.base}, ${opts.head})`);
-    this.reviewState.base = opts.base;
-    this.reviewState.head = opts.head;
+    this.viewState.base = opts.base;
+    this.viewState.head = opts.head;
   }
 
-  @Action
+  @Action({ rawError: true })
   public async newThread(opts: {
     username: string;
     args: ThreadPositionArgs;
@@ -296,7 +311,7 @@ export default class ReviewModule extends VuexModule {
     return thread;
   }
 
-  @Action
+  @Action({ rawError: true })
   public async newComment(opts: {
     threadId: string;
     user: CommentUser;
@@ -322,11 +337,11 @@ export default class ReviewModule extends VuexModule {
     return comment;
   }
 
-  @Action
+  @Action({ rawError: true })
   public async discardDraftComments(opts: { username: string }) {
     const batch = firestore().batch();
 
-    const draftThreads = this.review.threads
+    const draftThreads = this.threads
       .filter(t => t.draft)
       .filter(t => t.username === opts.username);
 
@@ -336,7 +351,7 @@ export default class ReviewModule extends VuexModule {
       );
     }
 
-    const draftComments = this.review.comments
+    const draftComments = this.comments
       .filter(c => c.draft)
       .filter(c => c.username === opts.username);
 
@@ -349,11 +364,11 @@ export default class ReviewModule extends VuexModule {
     await batch.commit();
   }
 
-  @Action
+  @Action({ rawError: true })
   public async sendDraftComments(opts: { username: string }) {
     const batch = firestore().batch();
 
-    const draftThreads = this.review.threads
+    const draftThreads = this.threads
       .filter(t => t.draft)
       .filter(t => t.username === opts.username);
 
@@ -367,7 +382,7 @@ export default class ReviewModule extends VuexModule {
       );
     }
 
-    const draftComments = this.review.comments
+    const draftComments = this.comments
       .filter(c => c.draft)
       .filter(t => t.username === opts.username);
 
@@ -383,7 +398,7 @@ export default class ReviewModule extends VuexModule {
     await batch.commit();
   }
 
-  @Action
+  @Action({ rawError: true })
   public async handleAddCommentEvent(opts: {
     e: events.AddCommentEvent;
     user: CommentUser;
@@ -422,5 +437,7 @@ export default class ReviewModule extends VuexModule {
         resolved: e.resolve
       });
     }
+
+    // TODO: At this point the resolution state of the review may have changed!
   }
 }

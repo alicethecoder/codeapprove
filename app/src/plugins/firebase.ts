@@ -1,4 +1,4 @@
-import * as firebase from "firebase/app";
+import firebase from "firebase/app";
 import "firebase/analytics";
 import "firebase/auth";
 import "firebase/firestore";
@@ -16,13 +16,17 @@ export function auth(): firebase.auth.Auth {
 }
 
 export function firestore(): firebase.firestore.Firestore {
-  return app().firestore();
+  const firestore = app().firestore();
+  if (process.env.NODE_ENV !== "production") {
+    firestore.useEmulator("localhost", 8040);
+  }
+  return firestore;
 }
 
 export function functions(): firebase.functions.Functions {
   const functions = app().functions();
   if (process.env.NODE_ENV !== "production") {
-    functions.useFunctionsEmulator("http://localhost:5001");
+    functions.useEmulator("localhost", 5001);
   }
   return functions;
 }

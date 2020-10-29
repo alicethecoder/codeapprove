@@ -252,7 +252,8 @@ import {
   Thread,
   Comment,
   ReviewMetadata,
-  CommentUser
+  CommentUser,
+  ReviewStatus
 } from "../../../../shared/types";
 import AuthModule from "../../store/modules/auth";
 import {
@@ -373,7 +374,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   public async sendDrafts(approve: boolean) {
     const me = this.authModule.assertUser.username;
-    const isReviewer = this.reviewModule.review.reviewers[me] !== undefined;
+    const isReviewer = this.reviewModule.review.state.reviewers.includes(me);
 
     if (isReviewer && approve) {
       // Moving from pending to approved
@@ -403,11 +404,11 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   public async onBaseSelected(base: string) {
-    this.reloadDiff(base, this.reviewModule.reviewState.head);
+    this.reloadDiff(base, this.reviewModule.viewState.head);
   }
 
   public async onHeadSelected(head: string) {
-    this.reloadDiff(this.reviewModule.reviewState.base, head);
+    this.reloadDiff(this.reviewModule.viewState.base, head);
   }
 
   public isFromFork() {
@@ -450,7 +451,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   public changeEntryKey(change: PullRequestChange) {
-    const { base, head } = this.reviewModule.reviewState;
+    const { base, head } = this.reviewModule.viewState;
     return `${change.metadata.from}@${base}-${change.metadata.to}@${head}`;
   }
 
@@ -504,9 +505,9 @@ export default class PullRequest extends Mixins(EventEnhancer)
       const change = changes[i];
 
       const match =
-        (thread.currentArgs.sha === this.reviewModule.reviewState.base &&
+        (thread.currentArgs.sha === this.reviewModule.viewState.base &&
           change.file.from === thread.currentArgs.file) ||
-        (thread.currentArgs.sha === this.reviewModule.reviewState.head &&
+        (thread.currentArgs.sha === this.reviewModule.viewState.head &&
           change.file.to === thread.currentArgs.file);
 
       // TODO: Jump to specific line
@@ -529,7 +530,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   get threads(): Thread[] {
-    let threads = this.reviewModule.review.threads.filter(t => !t.draft);
+    let threads = this.reviewModule.threads.filter(t => !t.draft);
 
     if (this.threadFilter !== "all") {
       const resolvedFilter = this.threadFilter === "resolved";
@@ -552,19 +553,13 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   get userHasApproved() {
-    return (
-      this.reviewModule.review.reviewers[
-        this.authModule.assertUser.username
-      ] === true
+    return this.reviewModule.review.state.approvers.includes(
+      this.authModule.assertUser.username
     );
   }
 
   get isApproved() {
-    return this.hasSomeApproval && !this.hasUnresolved;
-  }
-
-  get hasSomeApproval() {
-    return Object.values(this.reviewModule.review.reviewers).some(x => x);
+    return this.reviewModule.review.state.status === ReviewStatus.APPROVED;
   }
 
   get hasUnresolved() {
@@ -572,27 +567,26 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   get statusText() {
-    if (this.reviewers.length === 0) {
-      return "Needs Review";
+    switch (this.reviewModule.review.state.status) {
+      case ReviewStatus.NEEDS_REVIEW:
+        return "Needs Review";
+      case ReviewStatus.NEEDS_RESOLUTION:
+        return "Needs Resolution";
+      case ReviewStatus.NEEDS_APPROVAL:
+        return "Needs Approval";
+      case ReviewStatus.APPROVED:
+        return "Approved";
     }
 
-    if (this.hasSomeApproval) {
-      if (this.hasUnresolved) {
-        return "Needs Resolution";
-      } else {
-        return "Approved";
-      }
-    } else {
-      return "Needs Approval";
-    }
+    return "Unknown";
   }
 
   get reviewers(): string[] {
-    return Object.keys(this.reviewModule.review.reviewers);
+    return this.reviewModule.review.state.reviewers;
   }
 
   public didApprove(login: string): boolean {
-    return this.reviewModule.review.reviewers[login] || false;
+    return this.reviewModule.review.state.approvers.includes(login);
   }
 
   public canRemoveReviewer(login: string): boolean {
@@ -612,7 +606,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   public removeReviewer(login: string) {
-    this.reviewModule.removeReviewer({ login });
+    this.reviewModule.pushReviewer({ login, approved: undefined });
   }
 
   get loaded() {
@@ -624,11 +618,11 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   get numThreads() {
-    return this.reviewModule.review.threads.length;
+    return this.reviewModule.threads.length;
   }
 
   get numUnresolvedThreads() {
-    const unresolved: Thread[] = this.reviewModule.review.threads.filter(
+    const unresolved: Thread[] = this.reviewModule.threads.filter(
       x => !x.draft && !x.resolved
     );
     return unresolved.length;

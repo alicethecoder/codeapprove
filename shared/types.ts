@@ -17,17 +17,36 @@ export interface ReviewMetadata {
   };
 }
 
-// TODO: Need to flesh this out, this is what will go in Firestore
-export interface ReviewDoc {
-  reviewers: Record<string, boolean>;
+export enum ReviewStatus {
+  // Approved and all comments resolved
+  APPROVED = "approved",
+
+  // Approved by someone, but has unresolved comments
+  // TODO: Don't think this should be here, we should track unresolved as a separate boolean?
+  NEEDS_RESOLUTION = "needs_resolution",
+
+  // Has reviewers, but not yet approved by any
+  NEEDS_APPROVAL = "needs_approval",
+
+  // Nobody has reviewed this yet
+  NEEDS_REVIEW = "needs_review",
+}
+
+export interface ReviewState {
+  // Overall status
+  status: ReviewStatus;
+
+  // Anyone added as a reviewer
+  reviewers: string[];
+
+  // Those who have actually approved it
+  approvers: string[];
 }
 
 // TODO: Need information about what is up to date (comment shas, etc)
 export interface Review {
   metadata: ReviewMetadata;
-  reviewers: Record<string, boolean>;
-  threads: Thread[];
-  comments: Comment[];
+  state: ReviewState;
 }
 
 export interface ThreadPositionArgs {

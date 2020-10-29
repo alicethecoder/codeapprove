@@ -136,7 +136,7 @@ export default class DiffLine extends Mixins(EventEnhancer)
 
   public handleEvent(e: Partial<events.AddCommentEvent>) {
     console.log("DiffLine#handleEvent");
-    const base = this.reviewModule.reviewState.base;
+    const base = this.reviewModule.viewState.base;
     const side: Side = e.sha === base ? "left" : "right";
     e.lineContent = this.rendered[side].content;
     this.bubbleUp(e);
@@ -219,9 +219,9 @@ export default class DiffLine extends Mixins(EventEnhancer)
 
   public getThreadSha(side: Side): string {
     if (side === "left") {
-      return this.reviewModule.reviewState.base;
+      return this.reviewModule.viewState.base;
     } else {
-      return this.reviewModule.reviewState.head;
+      return this.reviewModule.viewState.head;
     }
   }
 

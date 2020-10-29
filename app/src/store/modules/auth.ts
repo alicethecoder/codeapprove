@@ -65,12 +65,12 @@ export default class AuthModule extends VuexModule {
     return !!this.user;
   }
 
-  @Action
+  @Action({ rawError: true })
   async startSignOut() {
     await auth().signOut();
   }
 
-  @Action
+  @Action({ rawError: true })
   async refreshGithubAuth() {
     console.log("refreshGithubAuth");
     const tokenRes = await functions().httpsCallable("getGithubToken")();

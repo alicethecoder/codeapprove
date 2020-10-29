@@ -24,12 +24,12 @@
 <script lang="ts">
 import { Component, Vue, Prop } from "vue-property-decorator";
 import { getModule } from "vuex-module-decorators";
-
 import HeaderBar from "@/components/elements/HeaderBar.vue";
 import FooterBar from "@/components/elements/FooterBar.vue";
 import ProgressBar from "@/components/elements/ProgressBar.vue";
 import MessageStack from "@/components/elements/MessageStack.vue";
 
+import firebase from "firebase/app";
 import { analytics, auth, remoteConfig } from "./plugins/firebase";
 import { config } from "./plugins/config";
 import * as events from "./plugins/events";

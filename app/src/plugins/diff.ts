@@ -232,7 +232,7 @@ export function changeLineNumber(change: parseDiff.Change, side: Side): number {
     case "del":
       return change.ln;
     case "normal":
-      if (side == "left") {
+      if (side === "left") {
         return change.ln1;
       } else {
         return change.ln2;

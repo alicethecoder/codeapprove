@@ -141,13 +141,13 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
 
   public getThreads(pair: RenderedChangePair): ThreadPair {
     const leftArgs: ThreadPositionArgs = {
-      sha: this.reviewModule.reviewState.base,
+      sha: this.reviewModule.viewState.base,
       file: this.meta.from,
       line: pair.left.number
     };
 
     const rightArgs: ThreadPositionArgs = {
-      sha: this.reviewModule.reviewState.head,
+      sha: this.reviewModule.viewState.head,
       file: this.meta.to,
       line: pair.right.number
     };
@@ -160,7 +160,7 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
 
   public handleEvent(e: Partial<AddCommentEvent>) {
     console.log("ChangeEntry#handleEvent");
-    const base = this.reviewModule.reviewState.base;
+    const base = this.reviewModule.viewState.base;
     e.file = e.sha === base ? this.meta.from : this.meta.to;
     this.bubbleUp(e);
   }
@@ -319,8 +319,8 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
     const owner = this.reviewModule.review.metadata.owner;
     const repo = this.reviewModule.review.metadata.repo;
 
-    const leftSha = this.reviewModule.reviewState.base;
-    const rightSha = this.reviewModule.reviewState.head;
+    const leftSha = this.reviewModule.viewState.base;
+    const rightSha = this.reviewModule.viewState.head;
 
     const prevChunk = this.getPrevChunk(index);
     const prevLeftEnd = prevChunk.oldStart + prevChunk.oldLines - 1;
@@ -386,11 +386,11 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
   get allThreads() {
     const l: Thread[] = this.reviewModule.threadsByFileAndSha(
       this.meta.from,
-      this.reviewModule.reviewState.base
+      this.reviewModule.viewState.base
     );
     const r: Thread[] = this.reviewModule.threadsByFileAndSha(
       this.meta.to,
-      this.reviewModule.reviewState.head
+      this.reviewModule.viewState.head
     );
 
     return [...l, ...r];

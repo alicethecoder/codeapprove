@@ -22,6 +22,12 @@ import {
 import * as events from "../../plugins/events";
 import firebase from "firebase/app";
 import { firestore } from "../../plugins/firebase";
+import {
+  repoPath,
+  reviewPath,
+  threadsPath,
+  commentsPath
+} from "../../../../shared/database";
 
 type Listener = () => void;
 
@@ -87,26 +93,24 @@ export default class ReviewModule extends VuexModule {
     };
   }
 
-  static reviewKey(metadata: ReviewMetadata) {
-    const { owner, repo, number } = metadata;
-    return `${owner}-${repo}-${number}`;
+  static repoRef(metadata: ReviewMetadata) {
+    return firestore().doc(repoPath(metadata));
   }
 
   static reviewRef(metadata: ReviewMetadata) {
-    return firestore()
-      .collection("reviews")
-      .doc(this.reviewKey(metadata));
+    // TODO: Type converter
+    return firestore().doc(reviewPath(metadata));
   }
 
   static threadsRef(metadata: ReviewMetadata) {
-    return this.reviewRef(metadata)
-      .collection("threads")
+    return firestore()
+      .collection(threadsPath(metadata))
       .withConverter(this.forceConverter<Thread>());
   }
 
   static commentsRef(metadata: ReviewMetadata) {
-    return this.reviewRef(metadata)
-      .collection("comments")
+    return firestore()
+      .collection(commentsPath(metadata))
       .withConverter(this.forceConverter<Comment>());
   }
 

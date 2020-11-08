@@ -2,7 +2,7 @@
  * A rewrite of https://github.com/probot/serverless-gcf with more modern deps
  */
 import * as functions from "firebase-functions";
-import { createProbot, Application, Probot } from "probot";
+import { Application, Probot } from "probot";
 import { findPrivateKey } from "probot/lib/helpers/get-private-key";
 
 export interface ProbotConfig {

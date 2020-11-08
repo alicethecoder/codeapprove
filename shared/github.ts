@@ -446,6 +446,17 @@ export class Github {
     return this.getPulls("author", login);
   }
 
+  async getOpenPulls(owner: string, repo: string) {
+    await this.assertAuth();
+    const pullsRes = await this.octokit.pulls.list({
+      owner,
+      repo,
+      state: "open",
+    });
+
+    return pullsRes.data;
+  }
+
   async executeGql(req: ReturnType<typeof graphql>) {
     try {
       // TODO: Types!

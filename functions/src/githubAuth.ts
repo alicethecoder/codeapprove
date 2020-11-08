@@ -4,6 +4,7 @@ import { createAppAuth } from "@octokit/auth-app";
 import * as api from "./api";
 import * as config from "./config";
 import * as logger from "./logger";
+import { Github } from "../../shared/github";
 
 type AppAuth = ReturnType<typeof createAppAuth>;
 
@@ -63,6 +64,34 @@ export async function getInstallationToken(
     token,
     expiresAt,
   };
+}
+
+export async function getAuthorizedGitHub(
+  installationId: number,
+  repositoryId: number
+) {
+  const appId = config.github().app_id;
+
+  // Now get a token
+  const token = await getInstallationToken(installationId, repositoryId);
+
+  // TODO: Move this whole thing to githubAuth
+  // Authorize a GitHub instance
+  return new Github(
+    {
+      getToken: () => {
+        return token.token;
+      },
+      getExpiry: () => {
+        // TODO: Deal with this possibility
+        return Number.MAX_SAFE_INTEGER;
+      },
+      refreshAuth: async () => {
+        // TODO: Deal with this possibility
+      },
+    },
+    appId
+  );
 }
 
 export async function getAppJwt(): Promise<string> {

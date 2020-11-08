@@ -12,7 +12,12 @@ import { serverless, ProbotConfig } from "./probot-serverless-gcf";
 import { bot } from "./bot";
 
 import { Installation, Thread, ThreadArgs } from "../../shared/types";
-import { Github } from "../../shared/github";
+import {
+  installationPath,
+  repoPath,
+  reviewPath,
+  threadsPath,
+} from "../../shared/database";
 
 const ax = api.getAxios();
 
@@ -46,48 +51,28 @@ export const updateThreads = functions.https.onRequest(async (req, res) => {
   const number = 7;
 
   // Get the installation ID
-  const repoKey = `${owner}-${repo}`;
   const installationRef = admin
     .firestore()
-    .collection("installations")
-    .doc(repoKey);
+    .doc(installationPath({ owner, repo }));
+
   const installationDoc = await installationRef.get();
   const installation = installationDoc.data() as Installation;
 
-  // Now get a token
-  const token = await githubAuth.getInstallationToken(
+  // Get a GitHub instance authorized as the installation
+  const gh = await githubAuth.getAuthorizedGitHub(
     installation.installation_id,
     installation.repo_id
-  );
-
-  // TODO: Move this whole thing to githubAuth
-  // Authorize a GitHub instance
-  const gh = new Github(
-    {
-      getToken: () => {
-        return token.token;
-      },
-      getExpiry: () => {
-        // TODO: Deal with this possibility
-        return Number.MAX_SAFE_INTEGER;
-      },
-      refreshAuth: async () => {
-        // TODO: Deal with this possibility
-      },
-    },
-    config.github().app_id
   );
 
   // Get the latest SHA
   const pr = await gh.getPullRequestMetadata(owner, repo, number);
   const headSha = pr.head.sha;
 
-  const reviewKey = `${owner}-${repo}-${number}`;
+  const repoRef = admin.firestore().doc(repoPath({ owner, repo }));
+  const reviewRef = admin.firestore().doc(reviewPath({ owner, repo, number }));
   const threadsRef = admin
     .firestore()
-    .collection("reviews")
-    .doc(reviewKey)
-    .collection("threads");
+    .collection(threadsPath({ owner, repo, number }));
 
   const threadsSnap = await threadsRef.get();
 

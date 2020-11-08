@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 
 import * as githubAuth from "./githubAuth";
+import { userPath } from "../../shared/database";
 
 export interface User {
   login: string;
@@ -23,10 +24,10 @@ export async function saveUser(
     refresh_token_expires,
   };
 
-  await admin.firestore().doc(`/users/${id}`).set(user);
+  await admin.firestore().doc(userPath({ id })).set(user);
 }
 
 export async function getUser(id: string): Promise<User> {
-  const res = await admin.firestore().doc(`/users/${id}`).get();
+  const res = await admin.firestore().doc(userPath({ id })).get();
   return res.data() as User;
 }

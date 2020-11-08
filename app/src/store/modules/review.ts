@@ -11,7 +11,8 @@ import {
   ThreadContentArgs,
   ThreadArgs,
   ThreadPositionArgs,
-  ReviewStatus
+  ReviewStatus,
+  ReviewState
 } from "../../../../shared/types";
 import {
   addReviewer,
@@ -61,6 +62,7 @@ export default class ReviewModule extends VuexModule {
       owner: "unknown",
       repo: "unknown",
       number: 0,
+      author: "unknown",
       base: {
         sha: "unknown",
         label: "unknown:unknown"
@@ -78,6 +80,7 @@ export default class ReviewModule extends VuexModule {
   };
 
   public listeners: { [key: string]: Listener | null } = {
+    review: null,
     comments: null,
     threads: null
   };
@@ -98,8 +101,9 @@ export default class ReviewModule extends VuexModule {
   }
 
   static reviewRef(metadata: ReviewMetadata) {
-    // TODO: Type converter
-    return firestore().doc(reviewPath(metadata));
+    return firestore()
+      .doc(reviewPath(metadata))
+      .withConverter(this.forceConverter<Review>());
   }
 
   static threadsRef(metadata: ReviewMetadata) {
@@ -152,7 +156,9 @@ export default class ReviewModule extends VuexModule {
   @Action({ rawError: true })
   public async initializeReview(metadata: ReviewMetadata) {
     this.context.commit("stopListening");
-    this.context.commit("setReviewMetadata", metadata);
+
+    // TODO: Can we set the viewState from Firestore?
+    // this.context.commit("setReviewMetadata", metadata);
 
     this.context.commit("setViewState", {
       base: metadata.base.sha,
@@ -161,10 +167,12 @@ export default class ReviewModule extends VuexModule {
 
     const reviewUnsub = ReviewModule.reviewRef(metadata).onSnapshot(snap => {
       console.log("review#onSnapshot");
-      const review = snap.data(); // TODO: Review Type
+      const review = snap.data();
 
-      // TODO: Actually take the review data
-      // TODO: Unsub from this listener
+      if (review) {
+        this.context.commit("setReviewMetadata", review.metadata);
+        this.context.commit("setReviewState", review.state);
+      }
     });
 
     const threadsUnsub = ReviewModule.threadsRef(metadata).onSnapshot(snap => {
@@ -192,6 +200,7 @@ export default class ReviewModule extends VuexModule {
     );
 
     this.context.commit("setListeners", {
+      review: reviewUnsub,
       comments: commentsUnsub,
       threads: threadsUnsub
     });
@@ -199,9 +208,11 @@ export default class ReviewModule extends VuexModule {
 
   @Mutation
   public setListeners(opts: {
+    review: Listener | null;
     comments: Listener | null;
     threads: Listener | null;
   }) {
+    this.listeners.review = opts.review;
     this.listeners.comments = opts.comments;
     this.listeners.threads = opts.threads;
   }
@@ -219,8 +230,12 @@ export default class ReviewModule extends VuexModule {
 
   @Mutation
   public setReviewMetadata(metadata: ReviewMetadata) {
-    // TODO: Firebase
     this.review.metadata = metadata;
+  }
+
+  @Mutation
+  public setReviewState(state: ReviewState) {
+    this.review.state = state;
   }
 
   @Mutation
@@ -250,15 +265,16 @@ export default class ReviewModule extends VuexModule {
   @Action({ rawError: true })
   public pushReviewer(opts: { login: string; approved?: boolean }) {
     this.context.commit("setReviewer", opts);
-
-    // TODO: This may be overwriting the metadata based on outdated information,
-    //       maybe we only want to set the state?
-    return ReviewModule.reviewRef(this.review.metadata).set(this.review);
+    return ReviewModule.reviewRef(this.review.metadata).update(
+      "state",
+      this.review.state
+    );
   }
 
   @Mutation
   public setReviewer(opts: { login: string; approved?: boolean }) {
     // TODO: Can this whole method just react to Firestore instead?
+    //       Can we use Firestore array operations?
 
     if (opts.approved !== undefined) {
       addReviewer(this.review, opts.login);

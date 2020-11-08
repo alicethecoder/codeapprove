@@ -7,7 +7,7 @@ export function orgPath(opts: { owner: string }) {
 }
 
 export function repoPath(opts: { owner: string; repo: string }) {
-  return `${orgPath(opts)}/repos/${opts.repo};`;
+  return `${orgPath(opts)}/repos/${opts.repo}`;
 }
 
 export function installationPath(opts: { owner: string; repo: string }) {

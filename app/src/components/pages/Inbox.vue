@@ -78,12 +78,14 @@ import AuthModule from "../../store/modules/auth";
 import UIModule from "../../store/modules/ui";
 
 import { config } from "../../plugins/config";
-import { InboxItemData, Status, itemSlug } from "../../model/inbox";
+import { itemSlug } from "../../model/inbox";
+import { firestore } from "../../plugins/firebase";
 import {
   Github,
   PullRequestNode,
   InstallationStatus
 } from "../../../../shared/github";
+import { Review } from "../../../../shared/types";
 
 @Component({
   components: {
@@ -95,8 +97,8 @@ export default class Inbox extends Vue {
     installed: false
   };
 
-  public inbox: InboxItemData[] = [];
-  public outbox: InboxItemData[] = [];
+  public inbox: Review[] = [];
+  public outbox: Review[] = [];
 
   private authModule = getModule(AuthModule, this.$store);
   private uiModule = getModule(UIModule, this.$store);
@@ -115,13 +117,24 @@ export default class Inbox extends Vue {
       return;
     }
 
-    // TODO: This data should be merged with some internal state about review status
-    const login = this.authModule.assertUser.username;
-    const assigned = await this.github.getAssignedPulls(login);
-    const outgoing = await this.github.getOutgoingPulls(login);
+    // Reviews to load
+    // Incoming (reviewer contains my login)
+    // Outgoing (I am the author)
 
-    this.inbox = assigned.map(this.nodeToItem);
-    this.outbox = outgoing.map(this.nodeToItem);
+    const login = this.authModule.assertUser.username;
+
+    // TODO: This type of thing should happen in a VueX module
+    const outgoingReviewsSnap = await firestore()
+      .collectionGroup("reviews")
+      .where("metadata.author", "==", login)
+      .get();
+    this.outbox = outgoingReviewsSnap.docs.map(d => d.data() as Review);
+
+    const incomingReviewsSnap = await firestore()
+      .collectionGroup("reviews")
+      .where("state.reviewers", "array-contains", login)
+      .get();
+    this.inbox = incomingReviewsSnap.docs.map(d => d.data() as Review);
 
     this.uiModule.endLoading();
   }
@@ -134,21 +147,8 @@ export default class Inbox extends Vue {
     return config.github.app_url + "/installations/new";
   }
 
-  public itemKey(item: InboxItemData) {
-    return itemSlug(item);
-  }
-
-  private nodeToItem(p: PullRequestNode): InboxItemData {
-    // TODO: This is not right
-    const status = p.closed ? "merged" : "pending";
-    return {
-      status,
-      owner: p.repository.owner.login,
-      repo: p.repository.name,
-      number: `${p.number}`,
-      title: p.title,
-      updated: new Date(p.updatedAt).getTime()
-    };
+  public itemKey(review: Review) {
+    return itemSlug(review);
   }
 }
 </script>

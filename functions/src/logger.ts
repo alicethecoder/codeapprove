@@ -9,7 +9,11 @@ export function debug(label: string, value?: any) {
 }
 
 export function info(label: string, value?: any) {
-  functions.logger.info(label, value);
+  if (value) {
+    functions.logger.info(label, value);
+  } else {
+    functions.logger.info(label);
+  }
 }
 
 export function warn(label: string, value?: any) {

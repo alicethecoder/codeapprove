@@ -7,6 +7,7 @@ export interface ReviewMetadata {
   owner: string;
   repo: string;
   number: number;
+  author: string;
   base: {
     label: string;
     sha: string;

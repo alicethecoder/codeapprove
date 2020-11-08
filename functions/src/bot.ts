@@ -77,6 +77,7 @@ export function bot(app: Application) {
             owner,
             repo: repo,
             number: pull.number,
+            author: pull.user.login,
             base: {
               label: pull.base.label,
               sha: pull.base.sha,

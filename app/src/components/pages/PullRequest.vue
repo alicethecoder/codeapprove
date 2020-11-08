@@ -317,11 +317,13 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
     this.prData = await this.github.getPullRequest(owner, repo, number);
 
+    // TODO: I think we can just load this from Firestore
     // TODO: Do we need to hold onto prData at all?
     this.meta = {
       owner,
       repo,
       number,
+      author: this.prData.pr.user.login,
       base: {
         label: this.prData.pr.base.label,
         sha: this.prData.pr.base.sha

@@ -1,21 +1,26 @@
 <template>
-  <router-link :to="`/pr/${item.owner}/${item.repo}/${item.number}`">
+  <router-link
+    :to="
+      `/pr/${item.metadata.owner}/${item.metadata.repo}/${item.metadata.number}`
+    "
+  >
     <!-- TODO: Some of these classes should be outside -->
     <div
       class="flex items-center bg-dark-3 px-4 py-2 mb-4 border-dark-0 shadow dark-shadow rounded"
     >
       <!-- TODO: Could use JS to keep these columns the same width dynamically instead of w-1/3 -->
       <span
-        :class="statusTextColor(item.status)"
+        :class="statusTextColor(item.state.status)"
         class="w-1/3 text-lg font-bold mr-4"
       >
-        <font-awesome-icon :icon="statusIcon(item.status)" class="mr-2" />
+        <font-awesome-icon :icon="statusIcon(item.state.status)" class="mr-2" />
         <span class="text-lg">{{ itemText(item) }}</span>
       </span>
-      <span class="text-lg mr-2">{{ item.title }}</span>
+      <span class="text-lg mr-2">{{ "TODO: store PR titles" }}</span>
       <span class="flex-grow"><!-- spacer --></span>
       <span class="text-md">
-        {{ renderTime(item.updated) }}
+        <!-- TODO: Real date -->
+        {{ renderTime(new Date()) }}
         <font-awesome-icon icon="history" class="ml-1" />
       </span>
     </div>
@@ -24,39 +29,40 @@
 
 <script lang="ts">
 import { Component, Vue, Prop } from "vue-property-decorator";
-import { InboxItemData, Status, itemSlug } from "../../model/inbox";
+import { Review, ReviewStatus } from "../../../../shared/types";
+import { itemSlug } from "../../model/inbox";
 
 @Component({
   components: {}
 })
 export default class InboxItem extends Vue {
-  @Prop() public item!: InboxItemData;
+  @Prop() public item!: Review;
 
   async mounted() {}
 
-  public itemText(item: InboxItemData) {
+  public itemText(item: Review) {
     return itemSlug(item);
   }
 
-  public statusTextColor(status: Status) {
+  public statusTextColor(status: ReviewStatus) {
     switch (status) {
-      case "approved":
+      case ReviewStatus.APPROVED:
         return "text-green-400";
-      case "pending":
+      case ReviewStatus.NEEDS_RESOLUTION:
+      case ReviewStatus.NEEDS_APPROVAL:
+      case ReviewStatus.NEEDS_REVIEW:
         return "text-yellow-400";
-      case "merged":
-        return "text-blue-500";
     }
   }
 
-  public statusIcon(status: Status) {
+  public statusIcon(status: ReviewStatus) {
     switch (status) {
-      case "approved":
+      case ReviewStatus.APPROVED:
         return "check";
-      case "pending":
+      case ReviewStatus.NEEDS_RESOLUTION:
+      case ReviewStatus.NEEDS_APPROVAL:
+      case ReviewStatus.NEEDS_REVIEW:
         return "pause-circle";
-      case "merged":
-        return "code-branch";
     }
   }
 

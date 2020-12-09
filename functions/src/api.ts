@@ -10,15 +10,17 @@ const ax = axios.create();
 axd.default({
   request: (debug, config) => {
     logger.debug(`Request: HTTP ${config.method}: "${config.url}"`);
-    if (config.method !== "GET") {
+    if (config.method !== "GET" && config.data) {
       logger.secret("Request Headers:", config.data);
       logger.secret("Request Body:", config.data);
     }
   },
   response: (debug, response) => {
     logger.debug(`Response: HTTP ${response.status}`);
-    logger.secret("Response Headers:", response.headers);
-    logger.secret("Response Body:", response.data);
+    if (response.status >= 400) {
+      logger.secret("Response Headers:", response.headers);
+      logger.secret("Response Body:", response.data);
+    }
   },
   error: (debug, error) => {
     logger.warn("Error:", error);

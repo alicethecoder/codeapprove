@@ -18,15 +18,3 @@ export function github(): GithubConfig {
     ...config,
   };
 }
-
-export function isProd() {
-  return process.env.GCLOUD_PROJECT === PROD_PROJECT_ID;
-}
-
-export function baseUrl() {
-  if (isProd()) {
-    return "https://codeapprove.com";
-  } else {
-    return "http://localhost:8080";
-  }
-}

@@ -69,7 +69,7 @@ export async function getInstallationToken(
 export async function getAuthorizedGitHub(
   installationId: number,
   repositoryId: number
-) {
+): Promise<Github> {
   const appId = config.github().app_id;
 
   // Now get a token

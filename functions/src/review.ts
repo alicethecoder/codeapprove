@@ -1,17 +1,28 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
-import { Review, ReviewStatus, Thread } from "../../shared/types";
-import { reviewStatesEqual } from "../../shared/typeUtils";
+import * as githubAuth from "./githubAuth";
+
+import {
+  Review,
+  ReviewStatus,
+  Thread,
+  Installation,
+  ReviewState,
+} from "../../shared/types";
+import { reviewStatesEqual, getReviewComment } from "../../shared/typeUtils";
+import { installationPath } from "../../shared/database";
 
 export const onReviewWrite = functions.firestore
-  .document("reviews/{reviewId}")
+  .document("orgs/{org}/repos/{repo}/reviews/{reviewId}")
   .onWrite(async (change, ctx) => {
     console.log(`onReviewWrite: ${ctx.params.reviewId}`);
     if (!change.after.exists) {
       console.log("Ignoring review deletion.");
       return;
     }
+
+    const { org, repo } = ctx.params;
 
     const before = change.before.exists
       ? (change.before.data() as Review)
@@ -20,37 +31,66 @@ export const onReviewWrite = functions.firestore
 
     // TODO: This function goes in a loop!
     // Check for a change in review state and recalculate status
+    let newStatus: ReviewStatus | undefined = undefined;
     if (!reviewStatesEqual(before?.state, after?.state)) {
       await admin.firestore().runTransaction(async (t) => {
         const ref = change.after.ref;
         const reviewSnap = await t.get(ref);
         const review = reviewSnap.data() as Review;
 
-        let status = review.state.status;
         if (review.state.reviewers.length === 0) {
-          status = ReviewStatus.NEEDS_REVIEW;
+          newStatus = ReviewStatus.NEEDS_REVIEW;
         } else {
           if (review.state.approvers.length > 0) {
             // TODO: Get this from the document!
             const countUnresolved = 0;
             if (countUnresolved > 0) {
-              status = ReviewStatus.NEEDS_RESOLUTION;
+              newStatus = ReviewStatus.NEEDS_RESOLUTION;
             } else {
-              status = ReviewStatus.APPROVED;
+              newStatus = ReviewStatus.APPROVED;
             }
           } else {
-            status = ReviewStatus.NEEDS_APPROVAL;
+            newStatus = ReviewStatus.NEEDS_APPROVAL;
           }
         }
 
-        console.log(`Setting review state.status to ${status}`);
-        await t.update(ref, "state.status", status);
+        console.log(`Setting review state.status to ${newStatus}`);
+        await t.update(ref, "state.status", newStatus);
       });
+
+      const installationRef = admin
+        .firestore()
+        .doc(installationPath({ owner: org, repo }));
+      const installation = (await installationRef.get()).data() as Installation;
+      const gh = await githubAuth.getAuthorizedGitHub(
+        installation.installation_id,
+        installation.repo_id
+      );
+
+      // Add a review and a comment
+      if (newStatus && newStatus !== after.state.status) {
+        const reviewEvent =
+          newStatus === ReviewStatus.APPROVED ? "APPROVE" : "REQUEST_CHANGES";
+
+        const state: ReviewState = {
+          ...after.state,
+          status: newStatus,
+        };
+
+        const body = getReviewComment(after.metadata, state);
+        await gh.reviewPullRequest(
+          org,
+          repo,
+          after.metadata.number,
+          reviewEvent,
+          body
+        );
+      }
     }
   });
 
 export const onThreadWrite = functions.firestore
-  .document("reviews/{reviewId}/threads/{threadId}")
+  .document("orgs/{org}/repos/{repo}/reviews/{reviewId}/threads/{threadId}")
   .onWrite(async (change, ctx) => {
     console.log(
       `onThreadWrite: ${ctx.params.reviewId}/threads/${ctx.params.threadId}`

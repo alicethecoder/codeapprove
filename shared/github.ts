@@ -457,6 +457,24 @@ export class Github {
     return pullsRes.data;
   }
 
+  async reviewPullRequest(
+    owner: string,
+    repo: string,
+    pull_number: number,
+    event: "APPROVE" | "REQUEST_CHANGES",
+    body?: string
+  ) {
+    await this.assertAuth();
+
+    await this.octokit.pulls.createReview({
+      owner,
+      repo,
+      pull_number,
+      event,
+      body,
+    });
+  }
+
   async executeGql(req: ReturnType<typeof graphql>) {
     try {
       // TODO: Types!

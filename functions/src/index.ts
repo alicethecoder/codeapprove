@@ -18,6 +18,7 @@ import {
   reviewPath,
   threadsPath,
 } from "../../shared/database";
+import { baseUrl } from "../../shared/config";
 
 const ax = api.getAxios();
 
@@ -200,7 +201,6 @@ export const oauth = functions.https.onRequest(async (request, response) => {
     custom_token,
   };
 
-  // TODO: There should probably be a special path here like /customauth
-  const baseUrl = config.baseUrl();
-  response.redirect(`${baseUrl}/signin?${qs.stringify(res)}`);
+  // TODO: There should probably be a special path here like /customauth;
+  response.redirect(`${baseUrl()}/signin?${qs.stringify(res)}`);
 });

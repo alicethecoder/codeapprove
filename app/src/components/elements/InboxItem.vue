@@ -16,11 +16,10 @@
         <font-awesome-icon :icon="statusIcon(item.state.status)" class="mr-2" />
         <span class="text-lg">{{ itemText(item) }}</span>
       </span>
-      <span class="text-lg mr-2">{{ "TODO: store PR titles" }}</span>
+      <span class="text-lg mr-2">{{ item.metadata.title }}</span>
       <span class="flex-grow"><!-- spacer --></span>
       <span class="text-md">
-        <!-- TODO: Real date -->
-        {{ renderTime(new Date()) }}
+        {{ renderTime(new Date(item.metadata.updated_at)) }}
         <font-awesome-icon icon="history" class="ml-1" />
       </span>
     </div>

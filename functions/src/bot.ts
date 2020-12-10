@@ -78,6 +78,7 @@ export function bot(app: Application) {
             repo: repo,
             number: pull.number,
             author: pull.user.login,
+            title: pull.title,
             base: {
               label: pull.base.label,
               sha: pull.base.sha,
@@ -86,6 +87,7 @@ export function bot(app: Application) {
               label: pull.head.label,
               sha: pull.head.sha,
             },
+            updated_at: new Date(pull.updated_at).getTime(),
           },
           state: {
             status: ReviewStatus.NEEDS_REVIEW,

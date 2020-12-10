@@ -128,13 +128,17 @@ export default class Inbox extends Vue {
       .collectionGroup("reviews")
       .where("metadata.author", "==", login)
       .get();
-    this.outbox = outgoingReviewsSnap.docs.map(d => d.data() as Review);
+    this.outbox = outgoingReviewsSnap.docs
+      .map(d => d.data() as Review)
+      .sort((a, b) => b.metadata.updated_at - a.metadata.updated_at);
 
     const incomingReviewsSnap = await firestore()
       .collectionGroup("reviews")
       .where("state.reviewers", "array-contains", login)
       .get();
-    this.inbox = incomingReviewsSnap.docs.map(d => d.data() as Review);
+    this.inbox = incomingReviewsSnap.docs
+      .map(d => d.data() as Review)
+      .sort((a, b) => b.metadata.updated_at - a.metadata.updated_at);
 
     this.uiModule.endLoading();
   }

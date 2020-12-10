@@ -115,6 +115,7 @@
                     />
                   </p>
                   <a
+                    v-if="canAddReviewer()"
                     class="text-blue-600 hover:underline cursor-pointer pr-1"
                     @click.stop="usersearching = true"
                     >(add)</a
@@ -324,6 +325,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
       repo,
       number,
       author: this.prData.pr.user.login,
+      title: this.prData.pr.title,
       base: {
         label: this.prData.pr.base.label,
         sha: this.prData.pr.base.sha
@@ -331,7 +333,8 @@ export default class PullRequest extends Mixins(EventEnhancer)
       head: {
         label: this.prData.pr.head.label,
         sha: this.prData.pr.head.sha
-      }
+      },
+      updated_at: new Date(this.prData.pr.updated_at).getTime()
     };
 
     // TODO: Call this again on base change?
@@ -589,6 +592,10 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   public didApprove(login: string): boolean {
     return this.reviewModule.review.state.approvers.includes(login);
+  }
+
+  public canAddReviewer(): boolean {
+    return this.authModule.assertUser.username === this.prData!.pr.user.login;
   }
 
   public canRemoveReviewer(login: string): boolean {

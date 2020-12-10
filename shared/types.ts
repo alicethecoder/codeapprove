@@ -8,6 +8,7 @@ export interface ReviewMetadata {
   repo: string;
   number: number;
   author: string;
+  title: string;
   base: {
     label: string;
     sha: string;
@@ -16,6 +17,7 @@ export interface ReviewMetadata {
     label: string;
     sha: string;
   };
+  updated_at: number;
 }
 
 export enum ReviewStatus {

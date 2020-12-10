@@ -63,6 +63,7 @@ export default class ReviewModule extends VuexModule {
       repo: "unknown",
       number: 0,
       author: "unknown",
+      title: "unknown",
       base: {
         sha: "unknown",
         label: "unknown:unknown"
@@ -70,7 +71,8 @@ export default class ReviewModule extends VuexModule {
       head: {
         sha: "unknown",
         label: "unknown:unknown"
-      }
+      },
+      updated_at: new Date().getTime()
     },
     state: {
       status: ReviewStatus.NEEDS_REVIEW,

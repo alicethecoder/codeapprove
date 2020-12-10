@@ -91,6 +91,7 @@ export function bot(app: Application) {
             status: ReviewStatus.NEEDS_REVIEW,
             reviewers: [],
             approvers: [],
+            unresolved: 0,
           },
         };
 

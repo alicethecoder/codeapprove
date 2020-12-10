@@ -24,25 +24,26 @@ export function reviewStatesEqual(a?: ReviewState, b?: ReviewState): boolean {
 
   return (
     a.status === b.status &&
+    a.unresolved === b.unresolved &&
     arraysEqual(a.reviewers, b.reviewers) &&
     arraysEqual(a.approvers, b.approvers)
   );
 }
 
-export function describeStatus(status: ReviewStatus): string {
+function describeStatus(status: ReviewStatus): string {
   switch (status) {
     case ReviewStatus.APPROVED:
-      return "Approved";
+      return "🟢 Review Status: Approved";
     case ReviewStatus.NEEDS_APPROVAL:
-      return "Needs Approval";
-    case ReviewStatus.NEEDS_RESOLUTION:
-      return "Needs Resolution";
+      return "🟡 Review Status: Needs Approval";
     case ReviewStatus.NEEDS_REVIEW:
-      return "Needs Review";
+      return "🟡 Review Status: Needs Review";
+    case ReviewStatus.NEEDS_RESOLUTION:
+      return "🔴 Review Status: Needs Resolution";
   }
 }
 
-export function describeUsers(users: string[]) {
+function describeUsers(users: string[]) {
   return users.length === 0 ? "None" : users.map((x) => `@${x}`).join(", ");
 }
 
@@ -50,12 +51,11 @@ export function getReviewComment(
   metadata: ReviewMetadata,
   state: ReviewState
 ): string {
-  // TODO: Add some emoji, color, etc
   // TODO: Better comment for new review
   const url = `${config.baseUrl()}/pr/${metadata.owner}/${metadata.repo}/${
     metadata.number
   }`;
-  return `[Status: ${describeStatus(state.status)}](${url})
+  return `[${describeStatus(state.status)}](${url})
   - Approved by: ${describeUsers(state.approvers)}
   - Reviewed by: ${describeUsers(state.reviewers)} 
   `;

@@ -11,12 +11,12 @@ import {
   ReviewState,
 } from "../../shared/types";
 import { reviewStatesEqual, getReviewComment } from "../../shared/typeUtils";
-import { installationPath } from "../../shared/database";
+import { installationPath, reviewPath } from "../../shared/database";
 
 export const onReviewWrite = functions.firestore
   .document("orgs/{org}/repos/{repo}/reviews/{reviewId}")
   .onWrite(async (change, ctx) => {
-    console.log(`onReviewWrite: ${ctx.params.reviewId}`);
+    console.log(`onReviewWrite: ${JSON.stringify(ctx.params)}`);
     if (!change.after.exists) {
       console.log("Ignoring review deletion.");
       return;
@@ -42,9 +42,7 @@ export const onReviewWrite = functions.firestore
           newStatus = ReviewStatus.NEEDS_REVIEW;
         } else {
           if (review.state.approvers.length > 0) {
-            // TODO: Get this from the document!
-            const countUnresolved = 0;
-            if (countUnresolved > 0) {
+            if (review.state.unresolved > 0) {
               newStatus = ReviewStatus.NEEDS_RESOLUTION;
             } else {
               newStatus = ReviewStatus.APPROVED;
@@ -92,13 +90,13 @@ export const onReviewWrite = functions.firestore
 export const onThreadWrite = functions.firestore
   .document("orgs/{org}/repos/{repo}/reviews/{reviewId}/threads/{threadId}")
   .onWrite(async (change, ctx) => {
-    console.log(
-      `onThreadWrite: ${ctx.params.reviewId}/threads/${ctx.params.threadId}`
-    );
+    console.log(`onThreadWrite: ${JSON.stringify(ctx.params)}`);
     if (!change.after.exists) {
       console.log("Ignoring thread deletion.");
       return;
     }
+
+    const { org, repo, reviewId, threadId } = ctx.params;
 
     const before = change.before.exists
       ? (change.before.data() as Thread)
@@ -108,9 +106,11 @@ export const onThreadWrite = functions.firestore
     if (before?.resolved !== after.resolved) {
       // Bump up/down unresolved count
       const diff = after.resolved ? -1 : 1;
-      await change.after.ref.parent?.parent?.update(
-        "state.unresolved",
-        admin.firestore.FieldValue.increment(diff)
-      );
+
+      console.log(`Incrementing state.unresolved by ${diff}`);
+      await admin
+        .firestore()
+        .doc(reviewPath({ owner: org, repo: repo, number: reviewId }))
+        .update("state.unresolved", admin.firestore.FieldValue.increment(diff));
     }
   });

@@ -42,6 +42,9 @@ export interface ReviewState {
 
   // Those who have actually approved it
   approvers: string[];
+
+  // Number of unresolved threads
+  unresolved: number;
 }
 
 // TODO: Need information about what is up to date (comment shas, etc)

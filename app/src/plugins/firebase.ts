@@ -16,19 +16,11 @@ export function auth(): firebase.auth.Auth {
 }
 
 export function firestore(): firebase.firestore.Firestore {
-  const firestore = app().firestore();
-  if (process.env.NODE_ENV !== "production") {
-    firestore.useEmulator("localhost", 8040);
-  }
-  return firestore;
+  return app().firestore();
 }
 
 export function functions(): firebase.functions.Functions {
-  const functions = app().functions();
-  if (process.env.NODE_ENV !== "production") {
-    functions.useEmulator("localhost", 5001);
-  }
-  return functions;
+  return app().functions();
 }
 
 export function remoteConfig(): firebase.remoteConfig.RemoteConfig {
@@ -37,7 +29,12 @@ export function remoteConfig(): firebase.remoteConfig.RemoteConfig {
 
 function app(): firebase.app.App {
   if (firebase.apps.length === 0) {
-    firebase.initializeApp(config.firebase);
+    const app = firebase.initializeApp(config.firebase);
+
+    if (process.env.NODE_ENV !== "production") {
+      app.firestore().useEmulator("localhost", 8040);
+      app.functions().useEmulator("localhost", 5001);
+    }
   }
 
   return firebase.app();

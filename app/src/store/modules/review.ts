@@ -75,7 +75,8 @@ export default class ReviewModule extends VuexModule {
     state: {
       status: ReviewStatus.NEEDS_REVIEW,
       reviewers: [],
-      approvers: []
+      approvers: [],
+      unresolved: 0
     }
   };
 
@@ -388,6 +389,7 @@ export default class ReviewModule extends VuexModule {
   public async sendDraftComments(opts: { username: string }) {
     const batch = firestore().batch();
 
+    // Find all threads that are drafts which we started
     const draftThreads = this.threads
       .filter(t => t.draft)
       .filter(t => t.username === opts.username);
@@ -396,12 +398,28 @@ export default class ReviewModule extends VuexModule {
       batch.update(
         ReviewModule.threadsRef(this.review.metadata).doc(thread.id),
         {
-          draft: false,
-          resolved: thread.pendingResolved
+          draft: false
         }
       );
     }
 
+    // Find all threads which are pending resolution and update them
+    // TODO: Is this safe? Is there any way we ever clobber someone else here?
+    const pendingResolutionThreads = this.threads
+      .filter(t => t.pendingResolved)
+      .filter(t => !t.resolved);
+
+    for (const thread of pendingResolutionThreads) {
+      batch.update(
+        ReviewModule.threadsRef(this.review.metadata).doc(thread.id),
+        {
+          resolved: true,
+          pendingResolved: false
+        }
+      );
+    }
+
+    // Find all comments that are drafts which we wrote
     const draftComments = this.comments
       .filter(c => c.draft)
       .filter(t => t.username === opts.username);
@@ -423,6 +441,8 @@ export default class ReviewModule extends VuexModule {
     e: events.AddCommentEvent;
     user: CommentUser;
   }) {
+    console.log(`review#handleAddCommentEvent(${JSON.stringify(opts)})`);
+
     const e = opts.e;
     const threadArgs: ThreadPositionArgs = {
       file: e.file,

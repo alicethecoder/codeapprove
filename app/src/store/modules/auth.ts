@@ -73,7 +73,7 @@ export default class AuthModule extends VuexModule {
   @Action({ rawError: true })
   async refreshGithubAuth() {
     console.log("refreshGithubAuth");
-    const tokenRes = await functions().httpsCallable("getGithubToken")();
+    const tokenRes = await functions().httpsCallable("api/getGithubToken")();
     const access_token = tokenRes.data.access_token;
     const access_token_expires = tokenRes.data.access_token_expires;
     this.context.commit("updateGithubToken", {

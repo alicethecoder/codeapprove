@@ -55,7 +55,7 @@ if (process.env.NODE_ENV !== "production") {
     app_id: 70622,
     app_url: "https://github.com/apps/codeapprove-dev",
     client_id: "Iv1.3bfe017ea9365f15",
-    redirect: "http://localhost:5000/oauth"
+    redirect: "http://localhost:5000/api/oauth"
   };
 } else {
   // PROD CONFIG
@@ -74,6 +74,6 @@ if (process.env.NODE_ENV !== "production") {
     app_id: 66242,
     app_url: "https://github.com/apps/codeapprove",
     client_id: "Iv1.6163c34dcb65f972",
-    redirect: "https://codeapprove.com/oauth"
+    redirect: "https://codeapprove.com/api/oauth"
   };
 }

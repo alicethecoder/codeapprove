@@ -5,7 +5,7 @@
     "build:watch": "tsc -w",
     "format": "prettier --write src/*.ts src/**/*.ts ../shared/*.ts",
     "emulate": "firebase emulators:start --import=../emulator-data --export-on-exit",
-    "smee": "smee --port 5001 --path /codeapprove-dev/us-central1/githubWebhook --url https://smee.io/XeU8k21RBs4gvf",
+    "smee": "smee --port 5000 --path /api/githubWebhook --url https://smee.io/XeU8k21RBs4gvf",
     "serve": "concurrently \"npm run build:watch\" \"npm run smee\" \"npm run emulate\"",
     "deploy": "firebase deploy --only functions"
   },

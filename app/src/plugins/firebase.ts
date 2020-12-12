@@ -7,6 +7,8 @@ import "firebase/remote-config";
 
 import { config } from "./config";
 
+let _functions: firebase.functions.Functions | undefined = undefined;
+
 export function analytics(): firebase.analytics.Analytics {
   return app().analytics();
 }
@@ -20,7 +22,16 @@ export function firestore(): firebase.firestore.Firestore {
 }
 
 export function functions(): firebase.functions.Functions {
-  return app().functions();
+  if (_functions === undefined) {
+    const host =
+      process.env.NODE_ENV !== "production"
+        ? "http://localhost:5000"
+        : "https://codeapprove.com";
+
+    _functions = app().functions(host);
+  }
+
+  return _functions;
 }
 
 export function remoteConfig(): firebase.remoteConfig.RemoteConfig {

@@ -66,7 +66,7 @@ export default class SignIn extends Vue {
     this.uiModule.beginLoading();
     try {
       const result = await auth().signInWithCustomToken(customToken);
-      const tokenRes = await functions().httpsCallable("getGithubToken")();
+      const tokenRes = await functions().httpsCallable("api/getGithubToken")();
 
       const access_token = tokenRes.data.access_token;
       const access_token_expires = tokenRes.data.access_token_expires;

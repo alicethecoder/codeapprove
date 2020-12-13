@@ -41,6 +41,7 @@ import { Component, Vue, Prop } from "vue-property-decorator";
 import * as firebase from "firebase/app";
 import { config } from "../../plugins/config";
 import { auth, functions } from "../../plugins/firebase";
+import * as cookies from "../../plugins/cookies";
 
 import { getModule } from "vuex-module-decorators";
 
@@ -78,7 +79,14 @@ export default class SignIn extends Vue {
           access_token_expires
         );
         this.authModule.setUser(user);
-        this.$router.push("/inbox");
+
+        const pendingPath = this.$cookies.get(cookies.SIGNIN_PATH);
+        if (pendingPath) {
+          this.$cookies.remove(cookies.SIGNIN_PATH);
+          this.$router.push(pendingPath);
+        } else {
+          this.$router.push("/inbox");
+        }
       } else {
         this.authModule.setUser(null);
       }

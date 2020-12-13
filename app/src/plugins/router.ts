@@ -13,6 +13,7 @@ import Inbox from "@/components/pages/Inbox.vue";
 import Pricing from "@/components/pages/Pricing.vue";
 
 import store from "@/store";
+import * as cookies from "../plugins/cookies";
 
 const authModule = getModule(AuthModule, store);
 const uiModule = getModule(UIModule, store);
@@ -56,6 +57,7 @@ router.beforeEach((to, from, next) => {
 
   if (to.meta && to.meta.auth && !authModule.signedIn) {
     console.log("Not signed in, blocking route: ", to.fullPath);
+    Vue.$cookies.set(cookies.SIGNIN_PATH, to.path);
     next({ path: "/signin" });
     return;
   }

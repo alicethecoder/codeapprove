@@ -11,6 +11,11 @@ import "./assets/styles/index.css";
 // Store
 import store from "@/store";
 
+// Cookies
+// https://github.com/cmp-cc/vue-cookie
+import VueCookies from "vue-cookies";
+Vue.use(VueCookies);
+
 // Router
 import router from "@/plugins/router";
 
@@ -40,11 +45,6 @@ Vue.config.productionTip = false;
 
 // Track page visibility
 import * as pagevis from "./plugins/pagevis";
-
-// Cookies
-// https://github.com/cmp-cc/vue-cookie
-import VueCookies from "vue-cookies";
-Vue.use(VueCookies);
 
 // Enable performance tracing in dev
 if (process.env.NODE_ENV !== "production") {

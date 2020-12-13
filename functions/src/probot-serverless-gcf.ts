@@ -7,7 +7,7 @@ import { getPrivateKey } from "@probot/get-private-key";
 import { ApplicationFunction } from "probot/lib/types";
 
 export interface ProbotConfig {
-  id: number;
+  appId: number;
   privateKey: string;
   webhookSecret: string;
 }
@@ -15,13 +15,17 @@ export interface ProbotConfig {
 let probot: Probot | undefined;
 
 function loadProbot(config: ProbotConfig, appFn: ApplicationFunction): Probot {
-  process.env.PRIVATE_KEY = config.privateKey;
-  const probot = new Probot({
-    id: config.id,
-    secret: config.webhookSecret,
-    privateKey: getPrivateKey() || undefined,
+  const privateKey = getPrivateKey({
+    env: {
+      PRIVATE_KEY: config.privateKey
+    }
   });
-  delete process.env.PRIVATE_KEY;
+  
+  const probot = new Probot({
+    appId: config.appId,
+    secret: config.webhookSecret,
+    privateKey: privateKey || undefined,
+  });
 
   probot.load(appFn);
   return probot;

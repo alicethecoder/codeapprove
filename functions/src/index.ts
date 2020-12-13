@@ -18,7 +18,7 @@ admin.initializeApp();
 
 function getProbotConfig(): ProbotConfig {
   return {
-    id: config.github().app_id,
+    appId: config.github().app_id,
     webhookSecret: config.github().webhook_secret,
     privateKey: config.github().private_key_encoded,
   };

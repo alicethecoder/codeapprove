@@ -75,7 +75,7 @@ export function bot(options: ApplicationFunctionOptions) {
     log.info("push");
 
     const ref = context.payload.ref;
-    const branchPrefix = "refs/heads";
+    const branchPrefix = "refs/heads/";
 
     if (!ref.startsWith(branchPrefix)) {
       log.info(`push: ignoring non-branch ref ${ref}`);

@@ -9,15 +9,7 @@ import * as users from "./users";
 import * as log from "./logger";
 
 import { serverless, ProbotConfig } from "./probot-serverless-gcf";
-import { bot } from "./bot";
-
-import { Installation, Thread, ThreadArgs } from "../../shared/types";
-import {
-  installationPath,
-  repoPath,
-  reviewPath,
-  threadsPath,
-} from "../../shared/database";
+import { bot, onPullRequestSynchronize } from "./bot";
 import { baseUrl } from "../../shared/config";
 
 const ax = api.getAxios();
@@ -44,69 +36,14 @@ export const githubWebhook = functions.https.onRequest(
   serverless(getProbotConfig(), bot)
 );
 
-// TODO: Move this to be part of the probot
+// TODO: Probably should hide this?
 export const updateThreads = functions.https.onRequest(async (req, res) => {
   // TODO: Should not be hardcoded
   const owner = "hatboysam";
   const repo = "codeapprove";
   const number = 7;
 
-  // Get the installation ID
-  const installationRef = admin
-    .firestore()
-    .doc(installationPath({ owner, repo }));
-
-  const installationDoc = await installationRef.get();
-  const installation = installationDoc.data() as Installation;
-
-  // Get a GitHub instance authorized as the installation
-  const gh = await githubAuth.getAuthorizedGitHub(
-    installation.installation_id,
-    installation.repo_id
-  );
-
-  // Get the latest SHA
-  const pr = await gh.getPullRequestMetadata(owner, repo, number);
-  const headSha = pr.head.sha;
-
-  const repoRef = admin.firestore().doc(repoPath({ owner, repo }));
-  const reviewRef = admin.firestore().doc(reviewPath({ owner, repo, number }));
-  const threadsRef = admin
-    .firestore()
-    .collection(threadsPath({ owner, repo, number }));
-
-  const threadsSnap = await threadsRef.get();
-
-  for (const thread of threadsSnap.docs) {
-    const data = thread.data() as Thread;
-    const { sha, file, line, lineContent } = data.currentArgs;
-
-    if (sha !== headSha) {
-      console.log(`Updating thread ${thread.ref.id} from ${sha}`);
-      const newLine = await gh.translateLineNumberHeadMove(
-        owner,
-        repo,
-        sha,
-        headSha,
-        file,
-        line
-      );
-
-      // TODO: What if newLine === -1?
-      // TODO: What about updated file name and line content?
-      const newLineNumber = newLine.line;
-      const newArgs: ThreadArgs = {
-        sha: headSha,
-        line: newLineNumber,
-        lineContent: newLineNumber === -1 ? "" : lineContent,
-        file: file,
-      };
-
-      await thread.ref.update("currentArgs", newArgs);
-    } else {
-      console.log(`Thread ${thread.ref.id} is up to date at ${sha}`);
-    }
-  }
+  await onPullRequestSynchronize(owner, repo, number);
 
   res.json({
     status: "ok",

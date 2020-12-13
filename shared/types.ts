@@ -49,7 +49,6 @@ export interface ReviewState {
   unresolved: number;
 }
 
-// TODO: Need information about what is up to date (comment shas, etc)
 export interface Review {
   metadata: ReviewMetadata;
   state: ReviewState;

@@ -11,6 +11,7 @@ import {
   installationPath,
   reviewPath,
   threadsPath,
+  reviewsPath,
 } from "../../shared/database";
 import {
   Installation,
@@ -70,14 +71,56 @@ export function bot(options: ApplicationFunctionOptions) {
     // TODO: Implement
   });
 
+  app.on("push", async (context) => {
+    log.info("push");
+
+    const ref = context.payload.ref;
+    const branchPrefix = "refs/heads";
+
+    if (!ref.startsWith(branchPrefix)) {
+      log.info(`push: ignoring non-branch ref ${ref}`);
+      return;
+    }
+
+    const owner = context.payload.repository.owner.login;
+    const repo = context.payload.repository.name;
+    const branch = ref.substring(branchPrefix.length);
+
+    log.info(`push: ${owner}/${repo} @ ${branch}`);
+
+    // Find all reviews with this as the BASE, pushes to HEAD
+    // are handled by the pull_request.synchronize event
+    //
+    // TODO: Filter out closed!
+    const label = `${owner}:${branch}`;
+    const q = admin
+      .firestore()
+      .collection(reviewsPath({ owner, repo }))
+      .where("metadata.base.label", "==", label);
+
+    const reviews = (await q.get()).docs.map((d) => d.data() as Review);
+    for (const review of reviews) {
+      log.info(
+        `Updating ${owner}/${repo}/${review.metadata.number} after push to ${label}`
+      );
+      await updatePullRequest(owner, repo, review.metadata.number);
+    }
+  });
+
   app.on("pull_request.synchronize", async (context) => {
+    // This event happens when the HEAD of a pull request is updated, but
+    // not the BASE:
+    // https://github.community/t/what-is-a-pull-request-synchronize-event/14784/2
+    //
+    // The reason to watch this event rather than just 'push' is because this lets
+    // you observe pushes for PRs from forks.
     log.info("pull_request.synchronize");
 
     const owner = context.payload.repository.owner.login;
     const repo = context.payload.repository.name;
     const number = context.payload.number;
 
-    await onPullRequestSynchronize(owner, repo, number);
+    await updatePullRequest(owner, repo, number);
   });
 }
 
@@ -185,12 +228,12 @@ async function getAuthorizedRepoGithub(owner: string, repo: string) {
   return gh;
 }
 
-export async function onPullRequestSynchronize(
+export async function updatePullRequest(
   owner: string,
   repo: string,
   number: number
 ) {
-  log.info(`onPullRequestSynchronize: ${owner}/${repo}/${number}`);
+  log.info(`updatePullRequest: ${owner}/${repo}/${number}`);
 
   // Get a GitHub instance authorized as the installation
   const gh = await getAuthorizedRepoGithub(owner, repo);
@@ -220,7 +263,7 @@ export async function onPullRequestSynchronize(
     const { sha, file, line, lineContent } = data.currentArgs;
 
     if (sha !== headSha) {
-      console.log(`Updating thread ${thread.ref.id} from ${sha}`);
+      log.info(`Updating thread ${thread.ref.id} from ${sha}`);
       const newLine = await gh.translateLineNumberHeadMove(
         owner,
         repo,
@@ -242,7 +285,7 @@ export async function onPullRequestSynchronize(
 
       await thread.ref.update("currentArgs", newArgs);
     } else {
-      console.log(`Thread ${thread.ref.id} is up to date at ${sha}`);
+      log.info(`Thread ${thread.ref.id} is up to date at ${sha}`);
     }
   }
 }

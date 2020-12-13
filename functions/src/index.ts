@@ -9,7 +9,7 @@ import * as users from "./users";
 import * as log from "./logger";
 
 import { serverless, ProbotConfig } from "./probot-serverless-gcf";
-import { bot, onPullRequestSynchronize } from "./bot";
+import { bot, updatePullRequest } from "./bot";
 import { baseUrl } from "../../shared/config";
 
 const ax = api.getAxios();
@@ -38,12 +38,11 @@ export const githubWebhook = functions.https.onRequest(
 
 // TODO: Probably should hide this?
 export const updateThreads = functions.https.onRequest(async (req, res) => {
-  // TODO: Should not be hardcoded
-  const owner = "hatboysam";
-  const repo = "codeapprove";
-  const number = 7;
+  const owner = req.param("owner");
+  const repo = req.param("repo");
+  const number = Number.parseInt(req.param("number"));
 
-  await onPullRequestSynchronize(owner, repo, number);
+  await updatePullRequest(owner, repo, number);
 
   res.json({
     status: "ok",

@@ -14,6 +14,10 @@ export function installationPath(opts: { owner: string; repo: string }) {
   return `${repoPath(opts)}/installations/default`;
 }
 
+export function reviewsPath(opts: { owner: string; repo: string }) {
+  return `${repoPath(opts)}/reviews`;
+}
+
 export function reviewPath(opts: {
   owner: string;
   repo: string;

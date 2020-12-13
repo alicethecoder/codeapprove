@@ -17,10 +17,10 @@ let probot: Probot | undefined;
 function loadProbot(config: ProbotConfig, appFn: ApplicationFunction): Probot {
   const privateKey = getPrivateKey({
     env: {
-      PRIVATE_KEY: config.privateKey
-    }
+      PRIVATE_KEY: config.privateKey,
+    },
   });
-  
+
   const probot = new Probot({
     appId: config.appId,
     secret: config.webhookSecret,

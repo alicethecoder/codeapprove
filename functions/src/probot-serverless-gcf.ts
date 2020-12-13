@@ -3,7 +3,8 @@
  */
 import * as functions from "firebase-functions";
 import { Application, Probot } from "probot";
-import { findPrivateKey } from "probot/lib/helpers/get-private-key";
+import { getPrivateKey } from "@probot/get-private-key";
+import { ApplicationFunction } from "probot/lib/types";
 
 export interface ProbotConfig {
   id: number;
@@ -12,14 +13,13 @@ export interface ProbotConfig {
 }
 
 let probot: Probot | undefined;
-type ProbotFn = (app: Application) => any;
 
-function loadProbot(config: ProbotConfig, appFn: ProbotFn): Probot {
+function loadProbot(config: ProbotConfig, appFn: ApplicationFunction): Probot {
   process.env.PRIVATE_KEY = config.privateKey;
   const probot = new Probot({
     id: config.id,
     secret: config.webhookSecret,
-    privateKey: findPrivateKey() || undefined,
+    privateKey: getPrivateKey() || undefined,
   });
   delete process.env.PRIVATE_KEY;
 
@@ -27,7 +27,7 @@ function loadProbot(config: ProbotConfig, appFn: ProbotFn): Probot {
   return probot;
 }
 
-export function serverless(config: ProbotConfig, appFn: ProbotFn) {
+export function serverless(config: ProbotConfig, appFn: ApplicationFunction) {
   return async (
     request: functions.https.Request,
     response: functions.Response

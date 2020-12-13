@@ -19,9 +19,11 @@ import {
   ThreadArgs,
   Thread,
 } from "../../shared/types";
+import { ApplicationFunctionOptions } from "probot/lib/types";
 
-// TODO: How to get better types on context.payload
-export function bot(app: Application) {
+export function bot(options: ApplicationFunctionOptions) {
+  const app = options.app;
+
   app.on("installation.created", async (context) => {
     log.info("installation.created");
 
@@ -64,7 +66,6 @@ export function bot(app: Application) {
 
     // If merged is false, the pull request was closed with unmerged commits.
     // If merged is true, the pull request was merged.
-    const merged = context.payload.merged as boolean;
 
     // TODO: Implement
   });
@@ -72,9 +73,9 @@ export function bot(app: Application) {
   app.on("pull_request.synchronize", async (context) => {
     log.info("pull_request.synchronize");
 
-    const owner = context.payload.repository.owner.login as string;
-    const repo = context.payload.repository.name as string;
-    const number = context.payload.number as number;
+    const owner = context.payload.repository.owner.login;
+    const repo = context.payload.repository.name;
+    const number = context.payload.number;
 
     await onPullRequestSynchronize(owner, repo, number);
   });

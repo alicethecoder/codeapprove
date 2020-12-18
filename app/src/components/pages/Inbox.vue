@@ -16,6 +16,7 @@
     <div v-else>
       <div class="grid grid-cols-3 gap-3">
         <div class="col-span-2">
+          <!-- Inbox -->
           <div class="mt-8">
             <h2 class="font-bold text-xl mb-2">Incoming</h2>
             <p v-if="inbox.length === 0" class="text-lg">
@@ -29,10 +30,11 @@
             />
           </div>
 
+          <!-- Outbox -->
           <div class="mt-8">
             <h2 class="font-bold text-xl mb-2">Outgoing</h2>
             <p v-if="outbox.length === 0" class="text-lg">
-              There's nothing here ... time to write some more code!
+              You have no open PRs ... time to write some more code!
             </p>
             <InboxItem
               v-else
@@ -41,10 +43,24 @@
               :key="itemKey(item)"
             />
           </div>
+
+          <!-- Finished -->
+          <div class="mt-8">
+            <h2 class="font-bold text-xl mb-2">Completed</h2>
+            <p v-if="finished.length === 0" class="text-lg">
+              There's nothing here ... time to get shipping!
+            </p>
+            <InboxItem
+              v-else
+              v-for="item in finished"
+              :item="item"
+              :key="itemKey(item)"
+            />
+          </div>
         </div>
         <div class="col-span-1 pl-8">
           <h2 class="font-bold text-2xl mb-2 mt-8">
-            Repos ({{ installation.repositories.length }})
+            Connected Repos ({{ installation.repositories.length }})
             <a :href="installation.installation.url" target="_blank"
               ><font-awesome-icon icon="cog" class="text-lg ml-2"
             /></a>
@@ -99,6 +115,7 @@ export default class Inbox extends Vue {
 
   public inbox: Review[] = [];
   public outbox: Review[] = [];
+  public finished: Review[] = [];
 
   private authModule = getModule(AuthModule, this.$store);
   private uiModule = getModule(UIModule, this.$store);
@@ -120,25 +137,40 @@ export default class Inbox extends Vue {
     // Reviews to load
     // Incoming (reviewer contains my login)
     // Outgoing (I am the author)
-
     const login = this.authModule.assertUser.username;
 
+    const sortByTime = (a: Review, b: Review) => {
+      return b.metadata.updated_at - a.metadata.updated_at;
+    };
+
     // TODO: This type of thing should happen in a VueX module
+    // TODO: Ordering
     const outgoingReviewsSnap = await firestore()
       .collectionGroup("reviews")
       .where("metadata.author", "==", login)
+      .limit(20)
       .get();
+
     this.outbox = outgoingReviewsSnap.docs
       .map(d => d.data() as Review)
-      .sort((a, b) => b.metadata.updated_at - a.metadata.updated_at);
+      .filter(r => !r.state.closed)
+      .sort(sortByTime);
 
     const incomingReviewsSnap = await firestore()
       .collectionGroup("reviews")
       .where("state.reviewers", "array-contains", login)
+      .limit(20)
       .get();
+
     this.inbox = incomingReviewsSnap.docs
       .map(d => d.data() as Review)
-      .sort((a, b) => b.metadata.updated_at - a.metadata.updated_at);
+      .filter(r => !r.state.closed)
+      .sort(sortByTime);
+
+    this.finished = [...incomingReviewsSnap.docs, ...outgoingReviewsSnap.docs]
+      .map(d => d.data() as Review)
+      .filter(r => r.state.closed)
+      .sort(sortByTime);
 
     this.uiModule.endLoading();
   }

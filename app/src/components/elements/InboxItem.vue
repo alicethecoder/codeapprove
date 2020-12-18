@@ -13,13 +13,16 @@
         :class="statusTextColor(item.state.status)"
         class="w-1/3 text-lg font-bold mr-4"
       >
-        <font-awesome-icon :icon="statusIcon(item.state.status)" class="mr-2" />
+        <font-awesome-icon
+          :icon="statusIconName(item.state.status)"
+          class="mr-2"
+        />
         <span class="text-lg">{{ itemText(item) }}</span>
       </span>
       <span class="text-lg mr-2">{{ item.metadata.title }}</span>
       <span class="flex-grow"><!-- spacer --></span>
       <span class="text-md">
-        {{ renderTime(new Date(item.metadata.updated_at)) }}
+        {{ renderTime(item.metadata.updated_at) }}
         <font-awesome-icon icon="history" class="ml-1" />
       </span>
     </div>
@@ -28,8 +31,10 @@
 
 <script lang="ts">
 import { Component, Vue, Prop } from "vue-property-decorator";
-import { Review, ReviewStatus } from "../../../../shared/types";
 import { itemSlug } from "../../model/inbox";
+
+import { Review, ReviewStatus } from "../../../../shared/types";
+import * as typeUtils from "../../../../shared/typeUtils";
 
 @Component({
   components: {}
@@ -44,25 +49,11 @@ export default class InboxItem extends Vue {
   }
 
   public statusTextColor(status: ReviewStatus) {
-    switch (status) {
-      case ReviewStatus.APPROVED:
-        return "text-green-400";
-      case ReviewStatus.NEEDS_RESOLUTION:
-      case ReviewStatus.NEEDS_APPROVAL:
-      case ReviewStatus.NEEDS_REVIEW:
-        return "text-yellow-400";
-    }
+    return typeUtils.statusTextColor(status);
   }
 
-  public statusIcon(status: ReviewStatus) {
-    switch (status) {
-      case ReviewStatus.APPROVED:
-        return "check";
-      case ReviewStatus.NEEDS_RESOLUTION:
-      case ReviewStatus.NEEDS_APPROVAL:
-      case ReviewStatus.NEEDS_REVIEW:
-        return "pause-circle";
-    }
+  public statusIconName(status: ReviewStatus) {
+    return typeUtils.statusIconName(status);
   }
 
   public renderTime(time: number) {

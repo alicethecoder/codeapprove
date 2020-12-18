@@ -61,6 +61,7 @@ export const onReviewWrite = functions.firestore
       const gh = await githubAuth.getAuthorizedRepoGithub(org, repo);
 
       // Add a review and a comment
+      // TODO: This should also happen on new comments! Not just new review status
       // TODO: Handle closing and re-opening
       if (newStatus && newStatus !== after.state.status) {
         const reviewEvent =

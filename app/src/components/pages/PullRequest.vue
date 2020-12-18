@@ -17,8 +17,8 @@
           >)
         </h2>
         <p>
-          merge <code>{{ prData.pr.head.label }}</code> into
-          <code>{{ prData.pr.base.label }}</code>
+          merge <code>{{ assertData.pr.head.label }}</code> into
+          <code>{{ assertData.pr.base.label }}</code>
         </p>
       </div>
 
@@ -77,7 +77,10 @@
           <span>Description</span>
         </div>
         <div class="description-content bg-dark-2">
-          <MarkdownContent class="px-4 pt-2 pb-4" :content="prData.pr.body" />
+          <MarkdownContent
+            class="px-4 pt-2 pb-4"
+            :content="assertData.pr.body"
+          />
         </div>
       </div>
 
@@ -86,13 +89,10 @@
         class="col-span-4 dark-shadow inline-block border-dark-0 overflow-hidden rounded border"
       >
         <div
-          :class="isApproved ? 'text-green-400' : 'text-yellow-400'"
+          :class="statusTextColor"
           class="flex items-center px-4 py-1 bg-dark-3 font-bold border-dark-0 border-b"
         >
-          <font-awesome-icon
-            :icon="isApproved ? 'check' : 'pause-circle'"
-            class="mr-2"
-          />
+          <font-awesome-icon :icon="statusIconName" class="mr-2" />
           <span>Status: {{ statusText }}</span>
         </div>
         <div class="bg-dark-2 p-4">
@@ -157,10 +157,13 @@
           v-if="!isFromFork()"
           class="mr-2"
           label="Base"
-          :keys="[prData.pr.base.ref, ...prData.commits.map(c => c.sha)]"
+          :keys="[
+            assertData.pr.base.ref,
+            ...assertData.commits.map(c => c.sha)
+          ]"
           :values="[
-            prData.pr.base.ref,
-            ...prData.commits.map(c => displayCommit(c))
+            assertData.pr.base.ref,
+            ...assertData.commits.map(c => displayCommit(c))
           ]"
           @selected="onBaseSelected($event.key)"
         />
@@ -170,8 +173,8 @@
           v-if="!isFromFork()"
           class="mr-2"
           label="Head"
-          :keys="prData.commits.map(c => c.sha).reverse()"
-          :values="prData.commits.map(c => displayCommit(c)).reverse()"
+          :keys="assertData.commits.map(c => c.sha).reverse()"
+          :values="assertData.commits.map(c => displayCommit(c)).reverse()"
           @selected="onHeadSelected($event.key)"
         />
 
@@ -181,7 +184,7 @@
       </div>
 
       <ChangeEntry
-        v-for="(change, i) in prChanges"
+        v-for="(change, i) in prChanges || []"
         ref="changes"
         @click.native="setActiveChangeEntry(i)"
         :key="changeEntryKey(change)"
@@ -256,6 +259,7 @@ import {
   CommentUser,
   ReviewStatus
 } from "../../../../shared/types";
+import * as typeUtils from "../../../../shared/typeUtils";
 import AuthModule from "../../store/modules/auth";
 import {
   KeyMap,
@@ -417,7 +421,9 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   public isFromFork() {
-    return this.prData!.pr.head.user.login !== this.prData!.pr.base.user.login;
+    return (
+      this.assertData.pr.head.user.login !== this.assertData.pr.base.user.login
+    );
   }
 
   // TODO: This whole thing doesn't work for forks!
@@ -432,8 +438,8 @@ export default class PullRequest extends Mixins(EventEnhancer)
       head
     );
 
-    this.prData!.diffs = freezeArray(diffs);
-    this.prChanges = this.renderPullRequest(this.prData!);
+    this.assertData.diffs = freezeArray(diffs);
+    this.prChanges = this.renderPullRequest(this.assertData);
 
     this.reviewModule.setBaseAndHead({
       base,
@@ -481,7 +487,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   public onNextFile() {
     this.setActiveChangeEntry(
-      Math.min(this.activeFileIndex + 1, this.prData!.diffs.length - 1)
+      Math.min(this.activeFileIndex + 1, this.assertData.diffs.length - 1)
     );
     this.scrollToActive();
   }
@@ -534,6 +540,14 @@ export default class PullRequest extends Mixins(EventEnhancer)
     return (this.$refs.changes as ChangeEntryAPI[])[this.activeFileIndex];
   }
 
+  get assertData(): PullRequestData {
+    if (this.prData === null) {
+      throw new Error("Assertion error: prData is null");
+    }
+
+    return this.prData;
+  }
+
   get threads(): Thread[] {
     let threads = this.reviewModule.threads.filter(t => !t.draft);
 
@@ -571,19 +585,16 @@ export default class PullRequest extends Mixins(EventEnhancer)
     return this.numUnresolvedThreads > 0;
   }
 
-  get statusText() {
-    switch (this.reviewModule.review.state.status) {
-      case ReviewStatus.NEEDS_REVIEW:
-        return "Needs Review";
-      case ReviewStatus.NEEDS_RESOLUTION:
-        return "Needs Resolution";
-      case ReviewStatus.NEEDS_APPROVAL:
-        return "Needs Approval";
-      case ReviewStatus.APPROVED:
-        return "Approved";
-    }
+  get statusIconName() {
+    return typeUtils.statusIconName(this.reviewModule.review.state.status);
+  }
 
-    return "Unknown";
+  get statusTextColor() {
+    return typeUtils.statusTextColor(this.reviewModule.review.state.status);
+  }
+
+  get statusText() {
+    return typeUtils.statusText(this.reviewModule.review.state.status);
   }
 
   get reviewers(): string[] {
@@ -595,7 +606,9 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   public canAddReviewer(): boolean {
-    return this.authModule.assertUser.username === this.prData!.pr.user.login;
+    return (
+      this.authModule.assertUser.username === this.assertData.pr.user.login
+    );
   }
 
   public canRemoveReviewer(login: string): boolean {
@@ -607,7 +620,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
     }
 
     // The PR author can remove reviewers
-    if (myLogin === this.prData!.pr.user.login) {
+    if (myLogin === this.assertData.pr.user.login) {
       return true;
     }
 

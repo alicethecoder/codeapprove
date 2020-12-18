@@ -47,21 +47,72 @@ export function reviewStatesEqual(a?: ReviewState, b?: ReviewState): boolean {
   );
 }
 
-function describeStatus(status: ReviewStatus): string {
+export function statusTextColor(status: ReviewStatus): string {
   switch (status) {
     case ReviewStatus.APPROVED:
-      return "🟢 Review Status: Approved";
+      return "text-green-400";
     case ReviewStatus.CLOSED_MERGED:
-      return "🚀 Review Status: Merged";
+      return "text-gray-400";
     case ReviewStatus.CLOSED_UNMERGED:
-      return "🗑️ Review Status: Closed";
-    case ReviewStatus.NEEDS_APPROVAL:
-      return "🟡 Review Status: Needs Approval";
-    case ReviewStatus.NEEDS_REVIEW:
-      return "🟡 Review Status: Needs Review";
+      return "text-red-400";
     case ReviewStatus.NEEDS_RESOLUTION:
-      return "🔴 Review Status: Needs Resolution";
+    case ReviewStatus.NEEDS_APPROVAL:
+    case ReviewStatus.NEEDS_REVIEW:
+      return "text-yellow-400";
   }
+}
+
+export function statusText(status: ReviewStatus): string {
+  switch (status) {
+    case ReviewStatus.APPROVED:
+      return "Approved";
+    case ReviewStatus.CLOSED_MERGED:
+      return "Merged";
+    case ReviewStatus.CLOSED_UNMERGED:
+      return "Closed";
+    case ReviewStatus.NEEDS_REVIEW:
+      return "Needs Review";
+    case ReviewStatus.NEEDS_RESOLUTION:
+      return "Needs Resolution";
+    case ReviewStatus.NEEDS_APPROVAL:
+      return "Needs Approval";
+  }
+}
+
+export function statusIconName(status: ReviewStatus): string {
+  switch (status) {
+    case ReviewStatus.APPROVED:
+      return "check";
+    case ReviewStatus.CLOSED_MERGED:
+      return "code-branch";
+    case ReviewStatus.CLOSED_UNMERGED:
+      return "times";
+    case ReviewStatus.NEEDS_RESOLUTION:
+    case ReviewStatus.NEEDS_APPROVAL:
+    case ReviewStatus.NEEDS_REVIEW:
+      return "pause-circle";
+  }
+}
+
+export function statusEmoji(status: ReviewStatus): string {
+  switch (status) {
+    case ReviewStatus.APPROVED:
+      return "🟢";
+    case ReviewStatus.CLOSED_MERGED:
+      return "🚀";
+    case ReviewStatus.CLOSED_UNMERGED:
+      return "🗑️";
+    case ReviewStatus.NEEDS_APPROVAL:
+      return "🟡";
+    case ReviewStatus.NEEDS_REVIEW:
+      return "🟡";
+    case ReviewStatus.NEEDS_RESOLUTION:
+      return "🔴";
+  }
+}
+
+function describeStatus(status: ReviewStatus): string {
+  return `${statusEmoji(status)} Review Status: ${statusText(status)}`;
 }
 
 function describeUsers(users: string[]) {

@@ -76,6 +76,7 @@ export default class ReviewModule extends VuexModule {
     },
     state: {
       status: ReviewStatus.NEEDS_REVIEW,
+      closed: false,
       reviewers: [],
       approvers: [],
       unresolved: 0

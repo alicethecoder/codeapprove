@@ -1,3 +1,4 @@
+import * as admin from "firebase-admin";
 import * as qs from "querystring";
 import { createAppAuth } from "@octokit/auth-app";
 
@@ -5,6 +6,8 @@ import * as api from "./api";
 import * as config from "./config";
 import * as logger from "./logger";
 import { Github } from "../../shared/github";
+import { installationPath } from "../../shared/database";
+import { Installation } from "../../shared/types";
 
 type AppAuth = ReturnType<typeof createAppAuth>;
 
@@ -94,13 +97,32 @@ export async function getAuthorizedGitHub(
   );
 }
 
+export async function getAuthorizedRepoGithub(
+  owner: string,
+  repo: string
+): Promise<Github> {
+  // Get the installation ID
+  const installationRef = admin
+    .firestore()
+    .doc(installationPath({ owner, repo }));
+
+  const installationDoc = await installationRef.get();
+  const installation = installationDoc.data() as Installation;
+
+  // Get a GitHub instance authorized as the installation
+  const gh = await getAuthorizedGitHub(
+    installation.installation_id,
+    installation.repo_id
+  );
+
+  return gh;
+}
+
 export async function getAppJwt(): Promise<string> {
   const appAuth = getAppAuth();
   const token = await appAuth({ type: "app" });
   return token.token;
 }
-
-async function listInstallations(): Promise<any> {}
 
 function queryToTokenResponse(res: qs.ParsedUrlQuery): AccessTokenResponse {
   if (res.error) {

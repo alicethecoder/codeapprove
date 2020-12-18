@@ -19,8 +19,10 @@ import {
   ReviewStatus,
   ThreadArgs,
   Thread,
+  ReviewMetadataSource,
 } from "../../shared/types";
 import { ApplicationFunctionOptions } from "probot/lib/types";
+import { calculateReviewStatus } from "../../shared/typeUtils";
 
 export function bot(options: ApplicationFunctionOptions) {
   const app = options.app;
@@ -58,17 +60,55 @@ export function bot(options: ApplicationFunctionOptions) {
   app.on("pull_request.opened", async (context) => {
     log.info("pull_request.opened");
 
-    // TODO: Implement
-    // TODO: Create a review
+    const owner = context.payload.repository.owner.login;
+    const repo = context.payload.repository.name;
+    const pull = context.payload.pull_request;
+
+    await createNewPullRequest(owner, repo, pull);
   });
 
   app.on("pull_request.closed", async (context) => {
     log.info("pull_request.closed");
 
+    const owner = context.payload.repository.owner.login;
+    const repo = context.payload.repository.name;
+    const number = context.payload.pull_request.number;
+
     // If merged is false, the pull request was closed with unmerged commits.
     // If merged is true, the pull request was merged.
+    const merged = context.payload.pull_request.merged;
+    const newStatus = merged
+      ? ReviewStatus.CLOSED_MERGED
+      : ReviewStatus.CLOSED_UNMERGED;
 
-    // TODO: Implement
+    const ref = admin.firestore().doc(reviewPath({ owner, repo, number }));
+    const updates = {
+      "state.closed": true,
+      "state.status": newStatus,
+    };
+    await ref.update(updates);
+  });
+
+  app.on("pull_request.reopened", async (context) => {
+    log.info("pull_request.reopened");
+
+    const owner = context.payload.repository.owner.login;
+    const repo = context.payload.repository.name;
+    const number = context.payload.pull_request.number;
+
+    // When re-opened we need to change the status back to one of the
+    // non-closed options.
+    const ref = admin.firestore().doc(reviewPath({ owner, repo, number }));
+    await admin.firestore().runTransaction(async (t) => {
+      const review = (await t.get(ref)).data() as Review;
+
+      const newStatus = calculateReviewStatus(review.state);
+      const updates = {
+        "state.closed": false,
+        "state.status": newStatus,
+      };
+      await t.update(ref, updates);
+    });
   });
 
   app.on("push", async (context) => {
@@ -88,15 +128,14 @@ export function bot(options: ApplicationFunctionOptions) {
 
     log.info(`push: ${owner}/${repo} @ ${branch}`);
 
-    // Find all reviews with this as the BASE, pushes to HEAD
+    // Find all open reviews with this as the BASE, pushes to HEAD
     // are handled by the pull_request.synchronize event
-    //
-    // TODO: Filter out closed!
     const label = `${owner}:${branch}`;
     const q = admin
       .firestore()
       .collection(reviewsPath({ owner, repo }))
-      .where("metadata.base.label", "==", label);
+      .where("metadata.base.label", "==", label)
+      .where("state.status.closed", "==", false);
 
     const reviews = (await q.get()).docs.map((d) => d.data() as Review);
     for (const review of reviews) {
@@ -177,55 +216,45 @@ export async function onRepoInstalled(
   const pulls = await gh.getOpenPulls(owner, repo);
   for (const pull of pulls) {
     log.info(`Creating review for PR ${owner}/${repo}/pulls/${pull.number}`);
-
-    const review: Review = {
-      metadata: {
-        owner,
-        repo: repo,
-        number: pull.number,
-        author: pull.user.login,
-        title: pull.title,
-        base: {
-          label: pull.base.label,
-          sha: pull.base.sha,
-        },
-        head: {
-          label: pull.head.label,
-          sha: pull.head.sha,
-        },
-        updated_at: new Date(pull.updated_at).getTime(),
-      },
-      state: {
-        status: ReviewStatus.NEEDS_REVIEW,
-        reviewers: [],
-        approvers: [],
-        unresolved: 0,
-      },
-    };
-
-    const reviewRef = admin
-      .firestore()
-      .doc(reviewPath({ owner, repo, number: pull.number }));
-    await reviewRef.set(review);
+    await createNewPullRequest(owner, repo, pull);
   }
 }
 
-async function getAuthorizedRepoGithub(owner: string, repo: string) {
-  // Get the installation ID
-  const installationRef = admin
+export async function createNewPullRequest(
+  owner: string,
+  repo: string,
+  pull: ReviewMetadataSource
+) {
+  const review: Review = {
+    metadata: {
+      owner,
+      repo: repo,
+      number: pull.number,
+      author: pull.user.login,
+      title: pull.title,
+      base: {
+        label: pull.base.label,
+        sha: pull.base.sha,
+      },
+      head: {
+        label: pull.head.label,
+        sha: pull.head.sha,
+      },
+      updated_at: new Date(pull.updated_at).getTime(),
+    },
+    state: {
+      status: ReviewStatus.NEEDS_REVIEW,
+      closed: false,
+      reviewers: [],
+      approvers: [],
+      unresolved: 0,
+    },
+  };
+
+  const reviewRef = admin
     .firestore()
-    .doc(installationPath({ owner, repo }));
-
-  const installationDoc = await installationRef.get();
-  const installation = installationDoc.data() as Installation;
-
-  // Get a GitHub instance authorized as the installation
-  const gh = await githubAuth.getAuthorizedGitHub(
-    installation.installation_id,
-    installation.repo_id
-  );
-
-  return gh;
+    .doc(reviewPath({ owner, repo, number: pull.number }));
+  await reviewRef.set(review);
 }
 
 export async function updatePullRequest(
@@ -236,7 +265,7 @@ export async function updatePullRequest(
   log.info(`updatePullRequest: ${owner}/${repo}/${number}`);
 
   // Get a GitHub instance authorized as the installation
-  const gh = await getAuthorizedRepoGithub(owner, repo);
+  const gh = await githubAuth.getAuthorizedRepoGithub(owner, repo);
 
   // Get the latest SHA
   const pr = await gh.getPullRequestMetadata(owner, repo, number);
@@ -246,8 +275,14 @@ export async function updatePullRequest(
   const reviewRef = admin.firestore().doc(reviewPath({ owner, repo, number }));
   const review = (await reviewRef.get()).data() as Review;
   review.metadata.title = pr.title;
-  review.metadata.base = pr.base;
-  review.metadata.head = pr.head;
+  review.metadata.base = {
+    sha: pr.base.sha,
+    label: pr.base.label,
+  };
+  review.metadata.head = {
+    sha: pr.head.sha,
+    label: pr.head.label,
+  };
   review.metadata.updated_at = Date.parse(pr.updated_at);
   await reviewRef.update("metadata", review.metadata);
 

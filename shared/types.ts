@@ -20,9 +20,29 @@ export interface ReviewMetadata {
   updated_at: number;
 }
 
+// Type representing incoming GitHub data (from API or WebHook) that
+// we can use to construct a ReviewMetadata:
+//  - owner/repo/author fields are added from elsewhere
+//  - updated_at is a string on GitHub, we want a number for sorting
+export type ReviewMetadataSource = Omit<
+  ReviewMetadata,
+  "owner" | "repo" | "author" | "updated_at"
+> & {
+  user: {
+    login: string;
+  };
+  updated_at: string;
+};
+
 export enum ReviewStatus {
   // Approved and all comments resolved
   APPROVED = "approved",
+
+  // Closed and all commits merged into the target branch
+  CLOSED_MERGED = "closed_merged",
+
+  // Closed before merging (abandoned)
+  CLOSED_UNMERGED = "closed_unmerged",
 
   // Approved by someone, but has unresolved comments
   // TODO: Don't think this should be here, we should track unresolved as a separate boolean?
@@ -38,6 +58,9 @@ export enum ReviewStatus {
 export interface ReviewState {
   // Overall status
   status: ReviewStatus;
+
+  // Open/closed state
+  closed: boolean;
 
   // Anyone added as a reviewer
   reviewers: string[];

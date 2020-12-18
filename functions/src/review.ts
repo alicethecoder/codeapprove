@@ -10,8 +10,12 @@ import {
   Installation,
   ReviewState,
 } from "../../shared/types";
-import { reviewStatesEqual, getReviewComment } from "../../shared/typeUtils";
-import { installationPath, reviewPath } from "../../shared/database";
+import {
+  reviewStatesEqual,
+  getReviewComment,
+  calculateReviewStatus,
+} from "../../shared/typeUtils";
+import { reviewPath } from "../../shared/database";
 
 export const onReviewWrite = functions.firestore
   .document("orgs/{org}/repos/{repo}/reviews/{reviewId}")
@@ -37,35 +41,27 @@ export const onReviewWrite = functions.firestore
         const ref = change.after.ref;
         const reviewSnap = await t.get(ref);
         const review = reviewSnap.data() as Review;
+        const reviewStatus = review.state.status;
 
-        if (review.state.reviewers.length === 0) {
-          newStatus = ReviewStatus.NEEDS_REVIEW;
+        // When a review is closed, we don't do anything
+        // TODO: Probably should do this outside the transaction!
+        if (review.state.closed) {
+          newStatus = reviewStatus;
         } else {
-          if (review.state.approvers.length > 0) {
-            if (review.state.unresolved > 0) {
-              newStatus = ReviewStatus.NEEDS_RESOLUTION;
-            } else {
-              newStatus = ReviewStatus.APPROVED;
-            }
-          } else {
-            newStatus = ReviewStatus.NEEDS_APPROVAL;
-          }
+          newStatus = calculateReviewStatus(review.state);
         }
 
-        console.log(`Setting review state.status to ${newStatus}`);
+        console.log(
+          `Setting review state.status from ${reviewStatus} to ${newStatus}`
+        );
         await t.update(ref, "state.status", newStatus);
       });
 
-      const installationRef = admin
-        .firestore()
-        .doc(installationPath({ owner: org, repo }));
-      const installation = (await installationRef.get()).data() as Installation;
-      const gh = await githubAuth.getAuthorizedGitHub(
-        installation.installation_id,
-        installation.repo_id
-      );
+      // Authorize as the Github App
+      const gh = await githubAuth.getAuthorizedRepoGithub(org, repo);
 
       // Add a review and a comment
+      // TODO: Handle closing and re-opening
       if (newStatus && newStatus !== after.state.status) {
         const reviewEvent =
           newStatus === ReviewStatus.APPROVED ? "APPROVE" : "REQUEST_CHANGES";

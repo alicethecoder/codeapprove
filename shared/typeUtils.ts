@@ -17,6 +17,22 @@ export function removeApprover(review: Review, login: string) {
   setRemove(review.state.approvers, login);
 }
 
+export function calculateReviewStatus(state: ReviewState): ReviewStatus {
+  if (state.reviewers.length === 0) {
+    return ReviewStatus.NEEDS_REVIEW;
+  } else {
+    if (state.approvers.length > 0) {
+      if (state.unresolved > 0) {
+        return ReviewStatus.NEEDS_RESOLUTION;
+      } else {
+        return ReviewStatus.APPROVED;
+      }
+    } else {
+      return ReviewStatus.NEEDS_APPROVAL;
+    }
+  }
+}
+
 export function reviewStatesEqual(a?: ReviewState, b?: ReviewState): boolean {
   if (!a || !b) {
     return a === b;
@@ -24,6 +40,7 @@ export function reviewStatesEqual(a?: ReviewState, b?: ReviewState): boolean {
 
   return (
     a.status === b.status &&
+    a.closed === b.closed &&
     a.unresolved === b.unresolved &&
     arraysEqual(a.reviewers, b.reviewers) &&
     arraysEqual(a.approvers, b.approvers)
@@ -34,6 +51,10 @@ function describeStatus(status: ReviewStatus): string {
   switch (status) {
     case ReviewStatus.APPROVED:
       return "🟢 Review Status: Approved";
+    case ReviewStatus.CLOSED_MERGED:
+      return "🚀 Review Status: Merged";
+    case ReviewStatus.CLOSED_UNMERGED:
+      return "🗑️ Review Status: Closed";
     case ReviewStatus.NEEDS_APPROVAL:
       return "🟡 Review Status: Needs Approval";
     case ReviewStatus.NEEDS_REVIEW:
@@ -51,7 +72,7 @@ export function getReviewComment(
   metadata: ReviewMetadata,
   state: ReviewState
 ): string {
-  // TODO: Better comment for new review
+  // TODO: Better comment for new review or closed reviews
   const url = `${config.baseUrl()}/pr/${metadata.owner}/${metadata.repo}/${
     metadata.number
   }`;

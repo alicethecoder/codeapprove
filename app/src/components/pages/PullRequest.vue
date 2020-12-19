@@ -71,9 +71,10 @@
         class="col-span-8 dark-shadow rounded border border-dark-0 overflow-hidden"
       >
         <div
-          class="flex items-center px-4 py-1 bg-dark-3 font-bold border-b border-dark-0"
+          :class="[statusClass.text, statusClass.border]"
+          class="flex items-center px-4 py-1 bg-dark-3 font-bold border-b"
         >
-          <font-awesome-icon icon="user-edit" class="mr-2" />
+          <font-awesome-icon icon="bookmark" class="mr-2" />
           <span>Description</span>
         </div>
         <div class="description-content bg-dark-2">
@@ -89,8 +90,8 @@
         class="col-span-4 dark-shadow inline-block border-dark-0 overflow-hidden rounded border"
       >
         <div
-          :class="statusTextColor"
-          class="flex items-center px-4 py-1 bg-dark-3 font-bold border-dark-0 border-b"
+          :class="[statusClass.text, statusClass.border]"
+          class="flex items-center px-4 py-1 bg-dark-3 font-bold border-b"
         >
           <font-awesome-icon :icon="statusIconName" class="mr-2" />
           <span>Status: {{ statusText }}</span>
@@ -577,8 +578,12 @@ export default class PullRequest extends Mixins(EventEnhancer)
     );
   }
 
+  get localStatus() {
+    return this.reviewModule.estimatedState.status;
+  }
+
   get isApproved() {
-    return this.reviewModule.review.state.status === ReviewStatus.APPROVED;
+    return this.localStatus === ReviewStatus.APPROVED;
   }
 
   get hasUnresolved() {
@@ -586,15 +591,15 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   get statusIconName() {
-    return typeUtils.statusIconName(this.reviewModule.review.state.status);
+    return typeUtils.statusIconName(this.localStatus);
   }
 
-  get statusTextColor() {
-    return typeUtils.statusTextColor(this.reviewModule.review.state.status);
+  get statusClass() {
+    return typeUtils.statusClass(this.localStatus);
   }
 
   get statusText() {
-    return typeUtils.statusText(this.reviewModule.review.state.status);
+    return typeUtils.statusText(this.localStatus);
   }
 
   get reviewers(): string[] {

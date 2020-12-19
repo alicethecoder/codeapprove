@@ -7,7 +7,6 @@ import {
   Review,
   ReviewStatus,
   Thread,
-  Installation,
   ReviewState,
 } from "../../shared/types";
 import {
@@ -92,6 +91,8 @@ export const onThreadWrite = functions.firestore
       console.log("Ignoring thread deletion.");
       return;
     }
+
+    // TODO: Should we be omitting drafts here?
 
     const { org, repo, reviewId, threadId } = ctx.params;
 

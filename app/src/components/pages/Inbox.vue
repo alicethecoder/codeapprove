@@ -59,7 +59,7 @@
           </div>
         </div>
         <div class="col-span-1 pl-8">
-          <h2 class="font-bold text-2xl mb-2 mt-8">
+          <h2 class="font-bold text-xl mb-2 mt-8">
             Connected Repos ({{ installation.repositories.length }})
             <a :href="installation.installation.url" target="_blank"
               ><font-awesome-icon icon="cog" class="text-lg ml-2"
@@ -72,6 +72,7 @@
               <li
                 v-for="repo in installation.repositories"
                 :key="repo.full_name"
+                class="pb-1"
               >
                 <font-awesome-icon :icon="['fab', 'github']" class="mr-2" />
                 <span class="text-lg">{{ repo.full_name }}</span>
@@ -167,7 +168,13 @@ export default class Inbox extends Vue {
       .filter(r => !r.state.closed)
       .sort(sortByTime);
 
-    this.finished = [...incomingReviewsSnap.docs, ...outgoingReviewsSnap.docs]
+    const combined = [...incomingReviewsSnap.docs];
+    for (const d of outgoingReviewsSnap.docs) {
+      if (!combined.find(x => x.id === d.id)) {
+        combined.push(d);
+      }
+    }
+    this.finished = combined
       .map(d => d.data() as Review)
       .filter(r => r.state.closed)
       .sort(sortByTime);

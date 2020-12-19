@@ -18,7 +18,8 @@ import {
   addReviewer,
   removeReviewer,
   addApprover,
-  removeApprover
+  removeApprover,
+  calculateReviewStatus
 } from "../../../../shared/typeUtils";
 import * as events from "../../plugins/events";
 import firebase from "firebase/app";
@@ -55,6 +56,12 @@ export default class ReviewModule extends VuexModule {
   // Threads and comments which are attached to the review
   public threads: Thread[] = [];
   public comments: Comment[] = [];
+
+  // Local estimate of review state
+  public estimatedState = {
+    status: ReviewStatus.NEEDS_REVIEW,
+    unresolved: 0
+  };
 
   // The review itself
   public review: Review = {
@@ -169,15 +176,25 @@ export default class ReviewModule extends VuexModule {
       head: metadata.head.sha
     });
 
-    const reviewUnsub = ReviewModule.reviewRef(metadata).onSnapshot(snap => {
-      console.log("review#onSnapshot");
-      const review = snap.data();
+    const reviewUnsub = ReviewModule.reviewRef(metadata).onSnapshot(
+      { includeMetadataChanges: true },
+      snap => {
+        console.log(
+          `review#onSnapshot: pending=${snap.metadata.hasPendingWrites}`
+        );
+        const review = snap.data();
 
-      if (review) {
-        this.context.commit("setReviewMetadata", review.metadata);
-        this.context.commit("setReviewState", review.state);
+        if (review) {
+          this.context.commit("setReviewMetadata", review.metadata);
+
+          // For the review state we actually prefer our guesses
+          if (!snap.metadata.hasPendingWrites) {
+            this.context.commit("setReviewState", review.state);
+            this.context.commit("calculateReviewStatus");
+          }
+        }
       }
-    });
+    );
 
     const threadsUnsub = ReviewModule.threadsRef(metadata).onSnapshot(snap => {
       console.log("threads#onSnapshot", snap.size);
@@ -243,6 +260,32 @@ export default class ReviewModule extends VuexModule {
   }
 
   @Mutation
+  public calculateReviewStatus() {
+    if (this.review.state.closed) {
+      this.estimatedState.status = this.review.state.status;
+      return;
+    }
+
+    // Estimate unresolved count based on local
+    this.estimatedState.unresolved = this.threads.filter(t => {
+      return !t.draft && !t.resolved;
+    }).length;
+
+    const newState = {
+      ...this.review.state,
+      unresolved: this.estimatedState.unresolved
+    };
+
+    // Estimate review status
+    this.estimatedState.status = calculateReviewStatus(newState);
+    if (this.estimatedState.status !== this.review.state.status) {
+      console.log(
+        `calculateReviewStatus: ${this.review.state.status} --> ${this.estimatedState.status}`
+      );
+    }
+  }
+
+  @Mutation
   public setViewState(viewState: ViewState) {
     this.viewState = viewState;
   }
@@ -269,6 +312,10 @@ export default class ReviewModule extends VuexModule {
   @Action({ rawError: true })
   public pushReviewer(opts: { login: string; approved?: boolean }) {
     this.context.commit("setReviewer", opts);
+
+    // Estimate local state
+    this.context.commit("calculateReviewStatus");
+
     return ReviewModule.reviewRef(this.review.metadata).update(
       "state",
       this.review.state
@@ -327,6 +374,9 @@ export default class ReviewModule extends VuexModule {
       originalArgs: ta
     };
 
+    // Estimate local state
+    this.context.commit("calculateReviewStatus");
+
     // Push the thread to Firebase
     await ReviewModule.threadsRef(this.review.metadata)
       .doc(thread.id)
@@ -352,6 +402,9 @@ export default class ReviewModule extends VuexModule {
       timestamp: new Date().toISOString(),
       draft: true
     };
+
+    // Estimate local state
+    this.context.commit("calculateReviewStatus");
 
     // Push the comment to Firebase
     await ReviewModule.commentsRef(this.review.metadata)
@@ -435,6 +488,9 @@ export default class ReviewModule extends VuexModule {
         }
       );
     }
+
+    // Estimate local state
+    this.context.commit("calculateReviewStatus");
 
     await batch.commit();
   }

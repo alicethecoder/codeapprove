@@ -64,6 +64,7 @@ export function bot(options: ApplicationFunctionOptions) {
     const repo = context.payload.repository.name;
     const pull = context.payload.pull_request;
 
+    // TODO: Add the bot as a reviewer!
     await createNewPullRequest(owner, repo, pull);
   });
 

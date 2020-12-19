@@ -47,18 +47,30 @@ export function reviewStatesEqual(a?: ReviewState, b?: ReviewState): boolean {
   );
 }
 
-export function statusTextColor(status: ReviewStatus): string {
+export function statusClass(status: ReviewStatus) {
   switch (status) {
     case ReviewStatus.APPROVED:
-      return "text-green-400";
+      return {
+        text: "text-green-400",
+        border: "border-green-400",
+      };
     case ReviewStatus.CLOSED_MERGED:
-      return "text-gray-400";
+      return {
+        text: "text-purple-300",
+        border: "border-purple-300",
+      };
     case ReviewStatus.CLOSED_UNMERGED:
-      return "text-red-400";
+      return {
+        text: "text-red-400",
+        border: "border-red-400",
+      };
     case ReviewStatus.NEEDS_RESOLUTION:
     case ReviewStatus.NEEDS_APPROVAL:
     case ReviewStatus.NEEDS_REVIEW:
-      return "text-yellow-400";
+      return {
+        text: "text-yellow-400",
+        border: "border-yellow-400",
+      };
   }
 }
 

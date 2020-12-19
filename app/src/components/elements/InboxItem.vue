@@ -10,7 +10,7 @@
     >
       <!-- TODO: Could use JS to keep these columns the same width dynamically instead of w-1/3 -->
       <span
-        :class="statusTextColor(item.state.status)"
+        :class="statusClass(item.state.status).text"
         class="w-1/3 text-lg font-bold mr-4"
       >
         <font-awesome-icon
@@ -48,8 +48,8 @@ export default class InboxItem extends Vue {
     return itemSlug(item);
   }
 
-  public statusTextColor(status: ReviewStatus) {
-    return typeUtils.statusTextColor(status);
+  public statusClass(status: ReviewStatus) {
+    return typeUtils.statusClass(status);
   }
 
   public statusIconName(status: ReviewStatus) {

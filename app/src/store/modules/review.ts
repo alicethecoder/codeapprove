@@ -11,7 +11,8 @@ import {
   ThreadArgs,
   ThreadPositionArgs,
   ReviewStatus,
-  ReviewState
+  ReviewState,
+  ReviewIdentifier
 } from "../../../../shared/types";
 import {
   addReviewer,
@@ -29,6 +30,7 @@ import {
   threadsPath,
   commentsPath
 } from "../../../../shared/database";
+import { CountdownLatch } from "../../../../shared/asyncUtils";
 
 type Listener = () => void;
 
@@ -106,25 +108,25 @@ export default class ReviewModule extends VuexModule {
     };
   }
 
-  static repoRef(metadata: ReviewMetadata) {
-    return firestore().doc(repoPath(metadata));
+  static repoRef(opts: ReviewIdentifier) {
+    return firestore().doc(repoPath(opts));
   }
 
-  static reviewRef(metadata: ReviewMetadata) {
+  static reviewRef(opts: ReviewIdentifier) {
     return firestore()
-      .doc(reviewPath(metadata))
+      .doc(reviewPath(opts))
       .withConverter(this.forceConverter<Review>());
   }
 
-  static threadsRef(metadata: ReviewMetadata) {
+  static threadsRef(opts: ReviewIdentifier) {
     return firestore()
-      .collection(threadsPath(metadata))
+      .collection(threadsPath(opts))
       .withConverter(this.forceConverter<Thread>());
   }
 
-  static commentsRef(metadata: ReviewMetadata) {
+  static commentsRef(opts: ReviewIdentifier) {
     return firestore()
-      .collection(commentsPath(metadata))
+      .collection(commentsPath(opts))
       .withConverter(this.forceConverter<Comment>());
   }
 
@@ -164,17 +166,12 @@ export default class ReviewModule extends VuexModule {
   }
 
   @Action({ rawError: true })
-  public async initializeReview(metadata: ReviewMetadata) {
+  public async initializeReview(opts: ReviewIdentifier) {
     this.context.commit("stopListening");
 
-    this.context.commit("setViewState", {
-      base: metadata.base.sha,
-      head: metadata.head.sha
-    });
+    const latch = new CountdownLatch(3);
 
-    // TODO: Apply a CountdownLatch to these three listeners
-
-    const reviewUnsub = ReviewModule.reviewRef(metadata).onSnapshot(
+    const reviewUnsub = ReviewModule.reviewRef(opts).onSnapshot(
       { includeMetadataChanges: true },
       snap => {
         console.log(
@@ -184,6 +181,10 @@ export default class ReviewModule extends VuexModule {
 
         if (review) {
           this.context.commit("setReviewMetadata", review.metadata);
+          this.context.commit("setViewState", {
+            base: review.metadata.base.sha,
+            head: review.metadata.head.sha
+          });
 
           // For the review state we actually prefer our guesses
           if (!snap.metadata.hasPendingWrites) {
@@ -191,10 +192,12 @@ export default class ReviewModule extends VuexModule {
             this.context.commit("calculateReviewStatus");
           }
         }
+
+        latch.decrement();
       }
     );
 
-    const threadsUnsub = ReviewModule.threadsRef(metadata).onSnapshot(snap => {
+    const threadsUnsub = ReviewModule.threadsRef(opts).onSnapshot(snap => {
       console.log("threads#onSnapshot", snap.size);
       const threads = snap.docs.map(doc => doc.data());
       this.context.commit("setThreads", threads);
@@ -203,26 +206,30 @@ export default class ReviewModule extends VuexModule {
         const thread = chg.doc.data();
         events.emit(events.NEW_THREAD_EVENT, { threadId: thread.id });
       });
+
+      latch.decrement();
     });
 
-    const commentsUnsub = ReviewModule.commentsRef(metadata).onSnapshot(
-      snap => {
-        console.log("comments#onSnapshot", snap.size);
-        const comments = snap.docs.map(doc => doc.data() as Comment);
-        this.context.commit("setComments", comments);
+    const commentsUnsub = ReviewModule.commentsRef(opts).onSnapshot(snap => {
+      console.log("comments#onSnapshot", snap.size);
+      const comments = snap.docs.map(doc => doc.data() as Comment);
+      this.context.commit("setComments", comments);
 
-        snap.docChanges().forEach(chg => {
-          const comment = chg.doc.data() as Comment;
-          events.emit(events.NEW_COMMENT_EVENT, { threadId: comment.threadId });
-        });
-      }
-    );
+      snap.docChanges().forEach(chg => {
+        const comment = chg.doc.data() as Comment;
+        events.emit(events.NEW_COMMENT_EVENT, { threadId: comment.threadId });
+      });
+
+      latch.decrement();
+    });
 
     this.context.commit("setListeners", {
       review: reviewUnsub,
       comments: commentsUnsub,
       threads: threadsUnsub
     });
+
+    return latch.wait();
   }
 
   @Mutation
@@ -300,7 +307,6 @@ export default class ReviewModule extends VuexModule {
 
   @Mutation
   public setThreadPendingState(opts: { threadId: string; resolved: boolean }) {
-    // TODO: This needs to propagate to Firestore
     const thread = this.threads.find(x => x.id === opts.threadId);
     if (thread) {
       thread.pendingResolved = opts.resolved;
@@ -353,7 +359,6 @@ export default class ReviewModule extends VuexModule {
   }): Promise<Thread> {
     console.log(`newThread(${JSON.stringify(opts)})`);
 
-    // TODO: Need a cloud function that brings this up to date
     const prHead = this.review.metadata.head.sha;
     if (opts.args.sha !== prHead) {
       console.log(

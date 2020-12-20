@@ -7,18 +7,18 @@
     <div class="mb-4 flex flex-row items-center">
       <div>
         <h2 class="font-bold text-xl">
-          {{ meta.owner }}/{{ meta.repo }} (<a
+          {{ assertMeta.owner }}/{{ assertMeta.repo }} (<a
             class="text-purple-300 hover:underline"
             :href="
-              `https://github.com/${meta.owner}/${meta.repo}/pull/${meta.number}`
+              `https://github.com/${assertMeta.owner}/${assertMeta.repo}/pull/${assertMeta.number}`
             "
             target="_blank"
-            >#{{ meta.number }}</a
+            >#{{ assertMeta.number }}</a
           >)
         </h2>
         <p>
-          merge <code>{{ assertData.pr.head.label }}</code> into
-          <code>{{ assertData.pr.base.label }}</code>
+          merge <code>{{ assertMeta.head.label }}</code> into
+          <code>{{ assertMeta.base.label }}</code>
         </p>
       </div>
 
@@ -80,7 +80,7 @@
         <div class="description-content bg-dark-2">
           <MarkdownContent
             class="px-4 pt-2 pb-4"
-            :content="assertData.pr.body"
+            :content="assertPrData.pr.body"
           />
         </div>
       </div>
@@ -126,8 +126,8 @@
                   class="absolute"
                   v-if="usersearching"
                   v-click-outside="() => (usersearching = false)"
-                  :owner="meta.owner"
-                  :repo="meta.repo"
+                  :owner="assertMeta.owner"
+                  :repo="assertMeta.repo"
                   @selected="onReviewerSelected"
                 />
               </td>
@@ -159,12 +159,12 @@
           class="mr-2"
           label="Base"
           :keys="[
-            assertData.pr.base.ref,
-            ...assertData.commits.map(c => c.sha)
+            assertPrData.pr.base.ref,
+            ...assertPrData.commits.map(c => c.sha)
           ]"
           :values="[
-            assertData.pr.base.ref,
-            ...assertData.commits.map(c => displayCommit(c))
+            assertPrData.pr.base.ref,
+            ...assertPrData.commits.map(c => displayCommit(c))
           ]"
           @selected="onBaseSelected($event.key)"
         />
@@ -174,8 +174,8 @@
           v-if="!isFromFork()"
           class="mr-2"
           label="Head"
-          :keys="assertData.commits.map(c => c.sha).reverse()"
-          :values="assertData.commits.map(c => displayCommit(c)).reverse()"
+          :keys="assertPrData.commits.map(c => c.sha).reverse()"
+          :values="assertPrData.commits.map(c => displayCommit(c)).reverse()"
           @selected="onHeadSelected($event.key)"
         />
 
@@ -300,9 +300,9 @@ export default class PullRequest extends Mixins(EventEnhancer)
   public usersearching = false;
   public loading = true;
 
+  public meta: ReviewMetadata | null = null;
   public prData: PullRequestData | null = null;
   public prChanges: PullRequestChange[] | null = null;
-  public meta!: ReviewMetadata;
 
   public activeFileIndex = -1;
   public threadFilter = "unresolved";
@@ -314,36 +314,23 @@ export default class PullRequest extends Mixins(EventEnhancer)
     );
     this.uiModule.beginLoading();
 
-    // TODO: Need to watch for route changes
-    // https://router.vuejs.org/guide/essentials/dynamic-matching.html#reacting-to-params-changes
     const params = this.$route.params;
-
     const { owner, repo } = params;
     const number = Number.parseInt(params.number);
 
+    // TODO: What if the PR does not exist?
+
+    // TODO: prData.pr is mostly the same as the metadata in Firestore except:
+    //  - body
+    //  - head.ref, head.user.login
+    //  - base.ref, base.user.login
     this.prData = await this.github.getPullRequest(owner, repo, number);
 
-    // TODO: I think we can just load this from Firestore
-    // TODO: Do we need to hold onto prData at all?
-    this.meta = {
-      owner,
-      repo,
-      number,
-      author: this.prData.pr.user.login,
-      title: this.prData.pr.title,
-      base: {
-        label: this.prData.pr.base.label,
-        sha: this.prData.pr.base.sha
-      },
-      head: {
-        label: this.prData.pr.head.label,
-        sha: this.prData.pr.head.sha
-      },
-      updated_at: new Date(this.prData.pr.updated_at).getTime()
-    };
-
     // TODO: Call this again on base change?
-    await this.reviewModule.initializeReview(this.meta);
+    await this.reviewModule.initializeReview({ owner, repo, number });
+
+    // TODO: Handle changes to PR (similar to GitHub "refresh" button)
+    this.meta = Object.freeze(this.reviewModule.review.metadata);
     this.prChanges = this.renderPullRequest(this.prData);
 
     this.uiModule.endLoading();
@@ -423,7 +410,8 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   public isFromFork() {
     return (
-      this.assertData.pr.head.user.login !== this.assertData.pr.base.user.login
+      this.assertPrData.pr.head.user.login !==
+      this.assertPrData.pr.base.user.login
     );
   }
 
@@ -433,14 +421,14 @@ export default class PullRequest extends Mixins(EventEnhancer)
     this.collapseAll();
 
     const diffs = await this.github.getDiff(
-      this.meta.owner,
-      this.meta.repo,
+      this.assertMeta.owner,
+      this.assertMeta.repo,
       base,
       head
     );
 
-    this.assertData.diffs = freezeArray(diffs);
-    this.prChanges = this.renderPullRequest(this.assertData);
+    this.assertPrData.diffs = freezeArray(diffs);
+    this.prChanges = this.renderPullRequest(this.assertPrData);
 
     this.reviewModule.setBaseAndHead({
       base,
@@ -488,7 +476,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   public onNextFile() {
     this.setActiveChangeEntry(
-      Math.min(this.activeFileIndex + 1, this.assertData.diffs.length - 1)
+      Math.min(this.activeFileIndex + 1, this.assertPrData.diffs.length - 1)
     );
     this.scrollToActive();
   }
@@ -541,7 +529,15 @@ export default class PullRequest extends Mixins(EventEnhancer)
     return (this.$refs.changes as ChangeEntryAPI[])[this.activeFileIndex];
   }
 
-  get assertData(): PullRequestData {
+  get assertMeta(): ReviewMetadata {
+    if (this.meta === null) {
+      throw new Error("Assertion error: meta is null");
+    }
+
+    return this.meta;
+  }
+
+  get assertPrData(): PullRequestData {
     if (this.prData === null) {
       throw new Error("Assertion error: prData is null");
     }
@@ -611,9 +607,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   public canAddReviewer(): boolean {
-    return (
-      this.authModule.assertUser.username === this.assertData.pr.user.login
-    );
+    return this.authModule.assertUser.username === this.assertMeta.author;
   }
 
   public canRemoveReviewer(login: string): boolean {
@@ -625,7 +619,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
     }
 
     // The PR author can remove reviewers
-    if (myLogin === this.assertData.pr.user.login) {
+    if (this.assertMeta.author === myLogin) {
       return true;
     }
 
@@ -637,7 +631,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   get loaded() {
-    return this.prData != null;
+    return !!this.prData && !!this.meta;
   }
 
   get drafts() {
@@ -655,8 +649,9 @@ export default class PullRequest extends Mixins(EventEnhancer)
     return unresolved.length;
   }
 
-  private renderPullRequest(prData: PullRequestData): PullRequestChange[] {
-    const changes: PullRequestChange[] = prData.diffs.map(file => {
+  // TODO: Move this to a static utilitiy
+  private renderPullRequest(data: PullRequestData): PullRequestChange[] {
+    const changes: PullRequestChange[] = data.diffs.map(file => {
       const metadata: FileMetadata = getFileMetadata(file);
       const data: ChunkData[] = file.chunks.map(chunk => {
         return {

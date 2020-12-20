@@ -78,7 +78,6 @@ export async function getAuthorizedGitHub(
   // Now get a token
   const token = await getInstallationToken(installationId, repositoryId);
 
-  // TODO: Move this whole thing to githubAuth
   // Authorize a GitHub instance
   return new Github(
     {

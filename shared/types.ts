@@ -3,10 +3,13 @@ export interface Installation {
   repo_id: number;
 }
 
-export interface ReviewMetadata {
+export interface ReviewIdentifier {
   owner: string;
   repo: string;
   number: number;
+}
+
+export interface ReviewMetadata extends ReviewIdentifier {
   author: string;
   title: string;
   base: {
@@ -45,7 +48,6 @@ export enum ReviewStatus {
   CLOSED_UNMERGED = "closed_unmerged",
 
   // Approved by someone, but has unresolved comments
-  // TODO: Don't think this should be here, we should track unresolved as a separate boolean?
   NEEDS_RESOLUTION = "needs_resolution",
 
   // Has reviewers, but not yet approved by any

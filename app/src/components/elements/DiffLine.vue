@@ -232,8 +232,7 @@ export default class DiffLine extends Mixins(EventEnhancer)
 
   public bgClass(change: RenderedChange): string {
     if (!this.rendered.commentsEnabled) {
-      // TODO: This color is meh
-      return "bg-indigo-900";
+      return "bg-gray-700";
     }
 
     switch (change.type) {

@@ -477,7 +477,6 @@ export class Github {
 
   async executeGql(req: ReturnType<typeof graphql>) {
     try {
-      // TODO: Types!
       return await req;
     } catch (e) {
       if (e.data) {

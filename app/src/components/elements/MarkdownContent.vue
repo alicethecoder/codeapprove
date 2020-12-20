@@ -76,37 +76,31 @@ export default class MarkdownContent extends Vue {
 .md >>> h4,
 .md >>> h5,
 .md >>> h6 {
-  @apply font-bold;
-  @apply font-body;
+  @apply font-bold font-body mb-2;
+  line-height: 1.2;
 }
 
 .md >>> h1 {
   font-size: 2em;
-  @apply mb-4;
 }
 
 .md >>> h2 {
   font-size: 1.5em;
-  @apply mb-3;
 }
 
 .md >>> h3 {
   font-size: 1.17em;
-  @apply mb-3;
 }
 
 .md >>> h4 {
   font-size: 1em;
-  @apply mb-3;
 }
 
 .md >>> h5 {
   font-size: 0.83em;
-  @apply mb-3;
 }
 
 .md >>> h6 {
   font-size: 0.67em;
-  @apply mb-3;
 }
 </style>

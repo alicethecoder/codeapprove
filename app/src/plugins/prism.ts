@@ -44,13 +44,13 @@ const LANG_MAP: Record<string, string> = {
 
 const Prism = require("prismjs");
 
-// TODO: Will this tree-shake properly?
 // Require the prism plugin for each language we support
 // See: https://github.com/PrismJS/prism/issues/593
 if (!Prism.languages["markup-templating"]) {
   require("prismjs/components/prism-markup-templating.js");
 }
 
+// TODO: Will this tree-shake properly?
 for (const lang of Object.values(LANG_MAP)) {
   if (!Prism.languages[lang]) {
     require("prismjs/components/prism-" + lang + ".js");

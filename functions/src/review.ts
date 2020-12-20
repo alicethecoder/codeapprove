@@ -56,7 +56,6 @@ export const onReviewWrite = functions.firestore
 
       // Add a review and a comment
       // TODO: This should also happen on new comments! Not just new review status
-      // TODO: Handle closing and re-opening
       if (newStatus && newStatus !== after.state.status) {
         const reviewEvent =
           newStatus === ReviewStatus.APPROVED ? "APPROVE" : "REQUEST_CHANGES";

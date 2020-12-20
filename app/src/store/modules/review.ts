@@ -1,4 +1,3 @@
-import Vue from "vue";
 import { Module, VuexModule, Mutation, Action } from "vuex-module-decorators";
 import * as uuid from "uuid";
 import { threadMatch } from "@/model/review";
@@ -168,13 +167,12 @@ export default class ReviewModule extends VuexModule {
   public async initializeReview(metadata: ReviewMetadata) {
     this.context.commit("stopListening");
 
-    // TODO: Can we set the viewState from Firestore?
-    // this.context.commit("setReviewMetadata", metadata);
-
     this.context.commit("setViewState", {
       base: metadata.base.sha,
       head: metadata.head.sha
     });
+
+    // TODO: Apply a CountdownLatch to these three listeners
 
     const reviewUnsub = ReviewModule.reviewRef(metadata).onSnapshot(
       { includeMetadataChanges: true },

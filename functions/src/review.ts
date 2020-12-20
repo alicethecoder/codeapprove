@@ -3,12 +3,7 @@ import * as admin from "firebase-admin";
 
 import * as githubAuth from "./githubAuth";
 
-import {
-  Review,
-  ReviewStatus,
-  Thread,
-  ReviewState,
-} from "../../shared/types";
+import { Review, ReviewStatus, Thread, ReviewState } from "../../shared/types";
 import {
   reviewStatesEqual,
   getReviewComment,

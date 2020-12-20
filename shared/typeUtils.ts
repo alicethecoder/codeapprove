@@ -33,6 +33,10 @@ export function calculateReviewStatus(state: ReviewState): ReviewStatus {
   }
 }
 
+export function reviewMetadatasEqual(a: ReviewMetadata, b: ReviewMetadata) {
+  return a.owner === b.owner && a.repo === b.repo && a.number === b.number;
+}
+
 export function reviewStatesEqual(a?: ReviewState, b?: ReviewState): boolean {
   if (!a || !b) {
     return a === b;

@@ -93,6 +93,7 @@ import InboxItem from "@/components/elements/InboxItem.vue";
 
 import AuthModule from "../../store/modules/auth";
 import UIModule from "../../store/modules/ui";
+import InboxModule from "../../store/modules/inbox";
 
 import { config } from "../../plugins/config";
 import { itemSlug } from "../../model/inbox";
@@ -110,16 +111,9 @@ import { Review } from "../../../../shared/types";
   }
 })
 export default class Inbox extends Vue {
-  public installation: InstallationStatus = {
-    installed: false
-  };
-
-  public inbox: Review[] = [];
-  public outbox: Review[] = [];
-  public finished: Review[] = [];
-
   private authModule = getModule(AuthModule, this.$store);
   private uiModule = getModule(UIModule, this.$store);
+  private inboxModule = getModule(InboxModule, this.$store);
 
   private github: Github = new Github(
     AuthModule.getDelegate(this.authModule),
@@ -129,57 +123,29 @@ export default class Inbox extends Vue {
   async mounted() {
     this.uiModule.beginLoading();
 
-    this.installation = await this.github.getInstallations();
-    if (!this.installation.installed) {
-      this.uiModule.endLoading();
-      return;
-    }
-
-    // Reviews to load
-    // Incoming (reviewer contains my login)
-    // Outgoing (I am the author)
     const login = this.authModule.assertUser.username;
-
-    const sortByTime = (a: Review, b: Review) => {
-      return b.metadata.updated_at - a.metadata.updated_at;
-    };
-
-    // TODO: This type of thing should happen in a VueX module
-    // TODO: Ordering
-    const outgoingReviewsSnap = await firestore()
-      .collectionGroup("reviews")
-      .where("metadata.author", "==", login)
-      .limit(20)
-      .get();
-
-    this.outbox = outgoingReviewsSnap.docs
-      .map(d => d.data() as Review)
-      .filter(r => !r.state.closed)
-      .sort(sortByTime);
-
-    const incomingReviewsSnap = await firestore()
-      .collectionGroup("reviews")
-      .where("state.reviewers", "array-contains", login)
-      .limit(20)
-      .get();
-
-    this.inbox = incomingReviewsSnap.docs
-      .map(d => d.data() as Review)
-      .filter(r => !r.state.closed)
-      .sort(sortByTime);
-
-    const combined = [...incomingReviewsSnap.docs];
-    for (const d of outgoingReviewsSnap.docs) {
-      if (!combined.find(x => x.id === d.id)) {
-        combined.push(d);
-      }
-    }
-    this.finished = combined
-      .map(d => d.data() as Review)
-      .filter(r => r.state.closed)
-      .sort(sortByTime);
+    await this.inboxModule.initialize({
+      github: this.github,
+      login
+    });
 
     this.uiModule.endLoading();
+  }
+
+  get installation() {
+    return this.inboxModule.installation;
+  }
+
+  get inbox() {
+    return this.inboxModule.inbox;
+  }
+
+  get outbox() {
+    return this.inboxModule.outbox;
+  }
+
+  get finished() {
+    return this.inboxModule.finished;
   }
 
   get loaded() {

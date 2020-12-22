@@ -40,7 +40,7 @@ interface ViewState {
 }
 
 const SortByTimestamp = function(a: Comment, b: Comment) {
-  return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+  return a.timestamp - b.timestamp;
 };
 
 @Module({
@@ -189,8 +189,8 @@ export default class ReviewModule extends VuexModule {
           // For the review state we actually prefer our guesses
           if (!snap.metadata.hasPendingWrites) {
             this.context.commit("setReviewState", review.state);
-            this.context.commit("calculateReviewStatus");
           }
+          this.context.commit("calculateReviewStatus");
         }
 
         latch.decrement();
@@ -201,6 +201,7 @@ export default class ReviewModule extends VuexModule {
       console.log("threads#onSnapshot", snap.size);
       const threads = snap.docs.map(doc => doc.data());
       this.context.commit("setThreads", threads);
+      this.context.commit("calculateReviewStatus");
 
       snap.docChanges().forEach(chg => {
         const thread = chg.doc.data();
@@ -306,10 +307,12 @@ export default class ReviewModule extends VuexModule {
   }
 
   @Mutation
-  public setThreadPendingState(opts: { threadId: string; resolved: boolean }) {
+  public setThreadPendingState(opts: { threadId: string; resolved?: boolean }) {
     const thread = this.threads.find(x => x.id === opts.threadId);
     if (thread) {
-      thread.pendingResolved = opts.resolved;
+      const pendingResolved =
+        opts.resolved === undefined ? null : opts.resolved;
+      thread.pendingResolved = pendingResolved;
     }
   }
 
@@ -368,7 +371,7 @@ export default class ReviewModule extends VuexModule {
       id: uuid.v4(),
       username: opts.username,
       resolved: false,
-      pendingResolved: false,
+      pendingResolved: null,
       draft: true,
       currentArgs: ta,
       originalArgs: ta
@@ -399,7 +402,7 @@ export default class ReviewModule extends VuexModule {
       photoURL: opts.user.photoURL,
       text: opts.text,
 
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().getTime(),
       draft: true
     };
 
@@ -444,8 +447,10 @@ export default class ReviewModule extends VuexModule {
   @Action({ rawError: true })
   public async sendDraftComments(opts: { username: string }) {
     const batch = firestore().batch();
+    const nowTime = new Date().getTime();
 
-    // Find all threads that are drafts which we started
+    // Find all threads that are drafts which we started and mark them
+    // as not draft.
     const draftThreads = this.threads
       .filter(t => t.draft)
       .filter(t => t.username === opts.username);
@@ -459,23 +464,24 @@ export default class ReviewModule extends VuexModule {
       );
     }
 
-    // Find all threads which are pending resolution and update them
+    // Find all threads which are pending resolution and flip them
     // TODO(stop): Is this safe? Is there any way we ever clobber someone else here?
-    const pendingResolutionThreads = this.threads
-      .filter(t => t.pendingResolved)
-      .filter(t => !t.resolved);
+    const pendingResolutionThreads = this.threads.filter(
+      t => t.pendingResolved !== null && t.pendingResolved !== t.resolved
+    );
 
     for (const thread of pendingResolutionThreads) {
       batch.update(
         ReviewModule.threadsRef(this.review.metadata).doc(thread.id),
         {
-          resolved: true,
-          pendingResolved: false
+          resolved: thread.pendingResolved,
+          pendingResolved: null
         }
       );
     }
 
-    // Find all comments that are drafts which we wrote
+    // Find all comments that are drafts which we wrote and mark them
+    // as not draft.
     const draftComments = this.comments
       .filter(c => c.draft)
       .filter(t => t.username === opts.username);
@@ -484,7 +490,8 @@ export default class ReviewModule extends VuexModule {
       batch.update(
         ReviewModule.commentsRef(this.review.metadata).doc(comment.id),
         {
-          draft: false
+          draft: false,
+          timestamp: nowTime
         }
       );
     }
@@ -530,12 +537,10 @@ export default class ReviewModule extends VuexModule {
     });
 
     // If resolution state specified, set that
-    if (e.resolve != undefined) {
-      this.context.commit("setThreadPendingState", {
-        threadId: thread.id,
-        resolved: e.resolve
-      });
-    }
+    this.context.commit("setThreadPendingState", {
+      threadId: thread.id,
+      resolved: e.resolve
+    });
 
     // TODO(stop): At this point the resolution state of the review may have changed!
   }

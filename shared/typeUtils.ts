@@ -1,4 +1,10 @@
-import { Review, ReviewState, ReviewStatus, ReviewMetadata } from "./types";
+import {
+  Review,
+  ReviewState,
+  ReviewStatus,
+  ReviewMetadata,
+  Thread,
+} from "./types";
 import * as config from "./config";
 
 export function addReviewer(review: Review, login: string) {
@@ -113,40 +119,87 @@ export function statusIconName(status: ReviewStatus): string {
 export function statusEmoji(status: ReviewStatus): string {
   switch (status) {
     case ReviewStatus.APPROVED:
-      return "🟢";
+      return "✔️";
     case ReviewStatus.CLOSED_MERGED:
       return "🚀";
     case ReviewStatus.CLOSED_UNMERGED:
       return "🗑️";
     case ReviewStatus.NEEDS_APPROVAL:
-      return "🟡";
+      return "⏳";
     case ReviewStatus.NEEDS_REVIEW:
-      return "🟡";
+      return "⏳";
     case ReviewStatus.NEEDS_RESOLUTION:
-      return "🔴";
+      return "❌";
   }
 }
 
 function describeStatus(status: ReviewStatus): string {
-  return `${statusEmoji(status)} Review Status: ${statusText(status)}`;
+  return `${statusEmoji(status)} ${statusText(status)}`;
 }
 
-function describeUsers(users: string[]) {
-  return users.length === 0 ? "None" : users.map((x) => `@${x}`).join(", ");
+function threadsTable(threads: Thread[]): string {
+  const nonDraft = threads.filter((t) => !t.draft);
+  if (nonDraft.length === 0) {
+    return "None";
+  }
+
+  const files: { [path: string]: { total: number; unresolved: number } } = {};
+  for (const t of nonDraft) {
+    const file = t.currentArgs.file;
+    if (!files[file]) {
+      files[file] = { total: 0, unresolved: 0 };
+    }
+
+    files[file].total++;
+    if (!t.resolved) {
+      files[file].unresolved++;
+    }
+  }
+
+  const table = ["| File | # Comments | # Unresolved |", "|---|---|---|"];
+  Object.keys(files).forEach((f) => {
+    table.push(`| \`${f}\` | ${files[f].total} | ${files[f].unresolved} |`);
+  });
+
+  return table.join("\n");
+}
+
+export function reviewersTable(state: ReviewState) {
+  if (state.reviewers.length === 0 && state.approvers.length === 0) {
+    return "None";
+  }
+
+  const table = ["| User | Status |", "|---|---|"];
+  for (const u of state.approvers) {
+    table.push(`| @${u} | ${statusEmoji(ReviewStatus.APPROVED)} Approved |`);
+  }
+  for (const u of state.reviewers) {
+    if (!state.approvers.includes(u)) {
+      table.push(
+        `| @${u} | ${statusEmoji(ReviewStatus.NEEDS_APPROVAL)} Pending |`
+      );
+    }
+  }
+  return table.join("\n");
 }
 
 export function getReviewComment(
   metadata: ReviewMetadata,
-  state: ReviewState
+  state: ReviewState,
+  threads: Thread[]
 ): string {
   // TODO(stop): Better comment for new review or closed reviews
   const url = `${config.baseUrl()}/pr/${metadata.owner}/${metadata.repo}/${
     metadata.number
   }`;
-  return `[${describeStatus(state.status)}](${url})
-  - Approved by: ${describeUsers(state.approvers)}
-  - Reviewed by: ${describeUsers(state.reviewers)} 
-  `;
+  return `#### Status
+[${describeStatus(state.status)}](${url})
+
+#### Reviewers
+${reviewersTable(state)}
+
+#### Comments
+${threadsTable(threads)}`;
 }
 
 function setAdd<T>(arr: T[], item: T) {

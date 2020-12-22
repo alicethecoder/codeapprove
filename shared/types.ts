@@ -96,7 +96,7 @@ export interface Thread {
   username: string;
   draft: boolean;
   resolved: boolean;
-  pendingResolved: boolean;
+  pendingResolved: boolean | null;
 
   currentArgs: ThreadArgs;
   originalArgs: ThreadArgs;
@@ -111,6 +111,23 @@ export interface Comment extends CommentUser {
   id: string;
   threadId: string;
   draft: boolean;
-  timestamp: string;
+  timestamp: number;
   text: string;
+}
+
+export interface GithubConfig {
+  app_name: string;
+  app_id: number;
+  client_id: string;
+}
+
+export interface ClientGitHubConfig extends GithubConfig {
+  app_url: string;
+  redirect: string;
+}
+
+export interface ServerGithubConfig extends GithubConfig {
+  client_secret: string;
+  webhook_secret: string;
+  private_key_encoded: string;
 }

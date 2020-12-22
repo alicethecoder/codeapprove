@@ -117,7 +117,7 @@ export default class Inbox extends Vue {
 
   private github: Github = new Github(
     AuthModule.getDelegate(this.authModule),
-    config.github.app_id
+    config.github
   );
 
   async mounted() {

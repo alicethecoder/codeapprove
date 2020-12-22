@@ -258,7 +258,7 @@ export default class CommentThread extends Mixins(EventEnhancer)
     this.$emit("goto");
   }
 
-  public formatTimestamp(timestamp: string): string {
+  public formatTimestamp(timestamp: number): string {
     const today = new Date();
     const date = new Date(timestamp);
     const locale = navigator.language || "en-US";

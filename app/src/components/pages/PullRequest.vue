@@ -310,7 +310,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
   async mounted() {
     this.github = new Github(
       AuthModule.getDelegate(this.authModule),
-      config.github.app_id
+      config.github
     );
     this.uiModule.beginLoading();
 

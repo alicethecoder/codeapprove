@@ -1,3 +1,5 @@
+import { ClientGitHubConfig } from "../../../shared/types";
+
 export interface Config {
   version: number;
   firebase: {
@@ -10,12 +12,7 @@ export interface Config {
     appId: string;
     measurementId: string;
   };
-  github: {
-    app_id: number;
-    app_url: string;
-    client_id: string;
-    redirect: string;
-  };
+  github: ClientGitHubConfig;
 }
 
 export const config: Config = {
@@ -31,6 +28,7 @@ export const config: Config = {
     measurementId: ""
   },
   github: {
+    app_name: "",
     app_id: 0,
     app_url: "",
     client_id: "",
@@ -52,6 +50,7 @@ if (process.env.NODE_ENV !== "production") {
   };
 
   config.github = {
+    app_name: "codeapprove-dev",
     app_id: 70622,
     app_url: "https://github.com/apps/codeapprove-dev",
     client_id: "Iv1.3bfe017ea9365f15",
@@ -71,6 +70,7 @@ if (process.env.NODE_ENV !== "production") {
   };
 
   config.github = {
+    app_name: "codeapprove",
     app_id: 66242,
     app_url: "https://github.com/apps/codeapprove",
     client_id: "Iv1.6163c34dcb65f972",

@@ -9,6 +9,7 @@ import parseDiff from "parse-diff";
 
 import * as octocache from "./octocache";
 import { freezeArray } from "./freeze";
+import { GithubConfig } from "./types";
 
 const PREVIEWS = ["machine-man-preview"];
 
@@ -73,7 +74,10 @@ export class Github {
   private octokit!: Octokit;
   private gql: typeof graphql = graphql;
 
-  constructor(private authDelegate: AuthDelegate, private githubAppId: number) {
+  constructor(
+    private authDelegate: AuthDelegate,
+    private githubConfig: GithubConfig
+  ) {
     this.applyAuth(this.authDelegate.getToken());
   }
 
@@ -406,7 +410,7 @@ export class Github {
 
     const installRes = await this.octokit.apps.listInstallationsForAuthenticatedUser();
     const installation = installRes.data.installations.find(
-      (i) => i.app_id === this.githubAppId
+      (i) => i.app_id === this.githubConfig.app_id
     );
 
     if (!installation) {
@@ -461,17 +465,48 @@ export class Github {
     repo: string,
     pull_number: number,
     event: "APPROVE" | "REQUEST_CHANGES",
-    body?: string
+    body: string
   ) {
     await this.assertAuth();
 
-    await this.octokit.pulls.createReview({
+    // TODO(polish): Could store this in Firestore
+    const res = await this.octokit.pulls.listReviews({
       owner,
       repo,
       pull_number,
-      event,
-      body,
+      per_page: 100,
     });
+
+    const reviews = res.data.sort((a, b) => {
+      return Date.parse(b.submitted_at) - Date.parse(a.submitted_at);
+    });
+
+    const myLatestReview = reviews.find((r) => {
+      return r.user.login === `${this.githubConfig.app_name}[bot]`;
+    });
+
+    const toState = event === "APPROVE" ? "APPROVED" : "CHANGES_REQUESTED";
+    const leaveNewReview = !myLatestReview || myLatestReview.state !== toState;
+
+    if (leaveNewReview) {
+      console.log(`Creating new review`);
+      await this.octokit.pulls.createReview({
+        owner,
+        repo,
+        pull_number,
+        event,
+        body,
+      });
+    } else {
+      console.log(`Updating existing review ${myLatestReview!.id}`);
+      await this.octokit.pulls.updateReview({
+        review_id: myLatestReview!.id,
+        owner,
+        repo,
+        pull_number,
+        body,
+      });
+    }
   }
 
   async executeGql(req: ReturnType<typeof graphql>) {

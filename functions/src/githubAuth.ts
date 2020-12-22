@@ -73,8 +73,6 @@ export async function getAuthorizedGitHub(
   installationId: number,
   repositoryId: number
 ): Promise<Github> {
-  const appId = config.github().app_id;
-
   // Now get a token
   const token = await getInstallationToken(installationId, repositoryId);
 
@@ -92,7 +90,7 @@ export async function getAuthorizedGitHub(
         // TODO(polish): Deal with this possibility
       },
     },
-    appId
+    config.github()
   );
 }
 

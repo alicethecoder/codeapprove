@@ -136,7 +136,7 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
   private reviewModule = getModule(ReviewModule, this.$store);
   private github: Github = new Github(
     AuthModule.getDelegate(this.authModule),
-    config.github.app_id
+    config.github
   );
 
   public getThreads(pair: RenderedChangePair): ThreadPair {

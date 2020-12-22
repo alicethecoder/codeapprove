@@ -71,7 +71,7 @@ export default class UserSearchModal extends Vue {
   mounted() {
     this.github = new Github(
       AuthModule.getDelegate(this.authModule),
-      config.github.app_id
+      config.github
     );
 
     (this.$refs.searchField as any).focus();

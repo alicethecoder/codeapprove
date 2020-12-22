@@ -9,7 +9,7 @@ import {
   getReviewComment,
   calculateReviewStatus,
 } from "../../shared/typeUtils";
-import { reviewPath } from "../../shared/database";
+import { reviewPath, threadsPath } from "../../shared/database";
 
 export const onReviewWrite = functions.firestore
   .document("orgs/{org}/repos/{repo}/reviews/{reviewId}")
@@ -51,12 +51,17 @@ export const onReviewWrite = functions.firestore
         await t.update(ref, "state.status", newStatus);
       });
 
-      // Authorize as the Github App
-      const gh = await githubAuth.getAuthorizedRepoGithub(org, repo);
+      if (!newStatus) {
+        console.log(`newStatus === undefined`);
+        return;
+      }
 
-      // Add a review and a comment
-      // TODO(stop): This should also happen on new comments! Not just new review status
-      if (newStatus && newStatus !== after.state.status) {
+      // TODO(stop): Need to also email on new comment
+      if (newStatus !== after.state.status) {
+        // Authorize as the Github App
+        const gh = await githubAuth.getAuthorizedRepoGithub(org, repo);
+
+        // Add a review and a comment
         const reviewEvent =
           newStatus === ReviewStatus.APPROVED ? "APPROVE" : "REQUEST_CHANGES";
 
@@ -65,7 +70,18 @@ export const onReviewWrite = functions.firestore
           status: newStatus,
         };
 
-        const body = getReviewComment(after.metadata, state);
+        const threadsRef = admin.firestore().collection(
+          threadsPath({
+            owner: org,
+            repo: repo,
+            number: after.metadata.number,
+          })
+        );
+        const threads = (await threadsRef.get()).docs.map(
+          (d) => d.data() as Thread
+        );
+
+        const body = getReviewComment(after.metadata, state, threads);
         await gh.reviewPullRequest(
           org,
           repo,
@@ -77,6 +93,10 @@ export const onReviewWrite = functions.firestore
     }
   });
 
+// TODO: When do we want to notify?
+//  - Change of status
+//  - New comment
+
 export const onThreadWrite = functions.firestore
   .document("orgs/{org}/repos/{repo}/reviews/{reviewId}/threads/{threadId}")
   .onWrite(async (change, ctx) => {
@@ -86,8 +106,6 @@ export const onThreadWrite = functions.firestore
       return;
     }
 
-    // TODO(stop): Should we be omitting drafts here?
-
     const { org, repo, reviewId, threadId } = ctx.params;
 
     const before = change.before.exists
@@ -95,10 +113,15 @@ export const onThreadWrite = functions.firestore
       : undefined;
     const after = change.after.data() as Thread;
 
+    if (after.draft) {
+      console.log(`Ignoring draft thread ${after.id}`);
+    }
+
     if (before?.resolved !== after.resolved) {
-      // Bump up/down unresolved count
+      // Bump the Review unresolved count up/down
       const diff = after.resolved ? -1 : 1;
 
+      // This will trigger the thread onWrite function
       console.log(`Incrementing state.unresolved by ${diff}`);
       await admin
         .firestore()

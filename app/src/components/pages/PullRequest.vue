@@ -318,18 +318,18 @@ export default class PullRequest extends Mixins(EventEnhancer)
     const { owner, repo } = params;
     const number = Number.parseInt(params.number);
 
-    // TODO: What if the PR does not exist?
+    // TODO(stop): What if the PR does not exist?
 
-    // TODO: prData.pr is mostly the same as the metadata in Firestore except:
+    // TODO(stop): prData.pr is mostly the same as the metadata in Firestore except:
     //  - body
     //  - head.ref, head.user.login
     //  - base.ref, base.user.login
     this.prData = await this.github.getPullRequest(owner, repo, number);
 
-    // TODO: Call this again on base change?
+    // TODO(stop): Call this again on base change?
     await this.reviewModule.initializeReview({ owner, repo, number });
 
-    // TODO: Handle changes to PR (similar to GitHub "refresh" button)
+    // TODO(stop): Handle changes to PR (similar to GitHub "refresh" button)
     this.meta = Object.freeze(this.reviewModule.review.metadata);
     this.prChanges = this.renderPullRequest(this.prData);
 
@@ -415,7 +415,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
     );
   }
 
-  // TODO: This whole thing doesn't work for forks!
+  // TODO(stop): This whole thing doesn't work for forks!
   public async reloadDiff(base: string, head: string) {
     this.uiModule.beginLoading();
     this.collapseAll();
@@ -510,7 +510,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
         (thread.currentArgs.sha === this.reviewModule.viewState.head &&
           change.file.to === thread.currentArgs.file);
 
-      // TODO: Jump to specific line
+      // TODO(polish): Jump to specific line
       if (match) {
         console.log(`goToThread: jumping to index ${i}`);
         this.setActiveChangeEntry(i);
@@ -649,7 +649,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
     return unresolved.length;
   }
 
-  // TODO: Move this to a static utilitiy
+  // TODO(polish): Move this to a static utilitiy
   private renderPullRequest(data: PullRequestData): PullRequestChange[] {
     const changes: PullRequestChange[] = data.diffs.map(file => {
       const metadata: FileMetadata = getFileMetadata(file);

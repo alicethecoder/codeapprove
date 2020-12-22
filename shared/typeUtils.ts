@@ -139,7 +139,7 @@ export function getReviewComment(
   metadata: ReviewMetadata,
   state: ReviewState
 ): string {
-  // TODO: Better comment for new review or closed reviews
+  // TODO(stop): Better comment for new review or closed reviews
   const url = `${config.baseUrl()}/pr/${metadata.owner}/${metadata.repo}/${
     metadata.number
   }`;

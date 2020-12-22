@@ -194,7 +194,6 @@ export class Github {
       pull_number,
     });
 
-    // TODO: Diff should be separate
     return {
       pr: Object.freeze(pr),
       commits: freezeArray(commits.data),
@@ -285,7 +284,7 @@ export class Github {
     file: string,
     line: number
   ) {
-    // TODO: This is extremely similar to the other method, DRY?
+    // TODO(polish): This is extremely similar to the other method, DRY?
 
     // Diff the two commits against each other to determine what changed
     const diff = await this.getDiff(owner, repo, oldBase, newBase);
@@ -489,7 +488,7 @@ export class Github {
     }
   }
 
-  // TODO: These params should be GQL variables not format strings...
+  // TODO(polish): These params should be GQL variables not format strings...
   async getPulls(filter: "review-requested" | "author", login: string) {
     await this.assertAuth();
 

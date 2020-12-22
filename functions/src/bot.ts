@@ -42,19 +42,19 @@ export function bot(options: ApplicationFunctionOptions) {
   app.on("installation_repositories.added", async (context) => {
     log.info("installation_repositories.added");
 
-    // TODO: Implement
+    // TODO(stop): Implement
   });
 
   app.on("installation_repositories.removed", async (context) => {
     log.info("installation_repositories.removed");
 
-    // TODO: Implement
+    // TODO(stop): Implement
   });
 
   app.on("installation.deleted", async (context) => {
     log.info("installation.deleted");
 
-    // TODO: Implement
+    // TODO(stop): Implement
   });
 
   app.on("pull_request.opened", async (context) => {
@@ -64,7 +64,7 @@ export function bot(options: ApplicationFunctionOptions) {
     const repo = context.payload.repository.name;
     const pull = context.payload.pull_request;
 
-    // TODO: Add the bot as a reviewer!
+    // TODO(stop): Add the bot as a reviewer!
     await createNewPullRequest(owner, repo, pull);
   });
 
@@ -174,7 +174,6 @@ export async function onRepoInstalled(
   const orgRef = admin.firestore().doc(orgPath({ owner }));
 
   // Make sure the org exists
-  // TODO: What do we store in an org doc?
   const orgSnap = await orgRef.get();
   if (!orgSnap.exists) {
     log.info(`Creating org: ${owner}`);
@@ -199,11 +198,11 @@ export async function onRepoInstalled(
     repo_id,
   };
 
-  // TODO: How expensive is this to do once per repo? Do I need to fan out this setup?
+  // TODO(polish): How expensive is this to do once per repo? Do I need to fan out this setup?
   const gh = await githubAuth.getAuthorizedGitHub(installation_id, repo_id);
 
   // 1) Create the installation document
-  // TODO: Can there be more than one installation of a repo?
+  // TODO(stop): Can there be more than one installation of a repo?
   log.info(`Creating installation for ${owner}/${repo}}`, installation);
   const installationRef = admin
     .firestore()
@@ -211,8 +210,8 @@ export async function onRepoInstalled(
   await installationRef.set(installation);
 
   // 2) For each open pull request on the repo, create a review document
-  // TODO: This won't scale to repos with many many open PRs
-  // TODO: Will this possibly obliterate previous installations? What about multiple
+  // TODO(stop): Fan out to scale to repos with many many open PRs
+  // TODO(stop): Will this possibly obliterate previous installations? What about multiple
   //       users in an org?
   const pulls = await gh.getOpenPulls(owner, repo);
   for (const pull of pulls) {
@@ -293,7 +292,7 @@ export async function updatePullRequest(
     .collection(threadsPath({ owner, repo, number }));
   const threadsSnap = await threadsRef.get();
 
-  // TODO: What if the base branch changes? What if there was a force push?
+  // TODO(stop): What if the base branch changes? What if there was a force push?
   for (const thread of threadsSnap.docs) {
     const data = thread.data() as Thread;
     const { sha, file, line, lineContent } = data.currentArgs;
@@ -309,8 +308,8 @@ export async function updatePullRequest(
         line
       );
 
-      // TODO: What if newLine === -1?
-      // TODO: What about updated file name and line content?
+      // TODO(stop): What if newLine === -1?
+      // TODO(stop): What about updated file name and line content?
       const newLineNumber = newLine.line;
       const newArgs: ThreadArgs = {
         sha: headSha,

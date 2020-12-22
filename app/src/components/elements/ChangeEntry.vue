@@ -193,7 +193,7 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
     return CHANGE_ENTRY_KEY_MAP(this);
   }
 
-  // TODO: When we can expand between chunks this will be a problem
+  // TODO(stop): When we can expand between chunks this will be a problem
   get totalLength(): number {
     let totalLength = 0;
     this.chunks.forEach(c => (totalLength += c.pairs.length));
@@ -235,7 +235,7 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
       return;
     }
 
-    // TODO: Add some benchmarking here!
+    // TODO(stop): Add some benchmarking here!
     const isLarge = this.totalLength >= 50;
 
     if (!isLarge) {
@@ -274,7 +274,7 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
 
   public prevLine() {
     this.setActiveDiffLine(Math.max(this.activeLineIndex - 1, 0));
-    // TODO: When scrolling up we don't properly account for the header
+    // TODO(polish): When scrolling up we don't properly account for the header
     makeTopVisible(this.getCurrentLine()!.$el, 150);
   }
 
@@ -348,7 +348,7 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
       rightEnd
     );
 
-    // TODO: Handle zipping lines of different lengths
+    // TODO(polish): Handle zipping lines of different lengths
     if (leftLines.length != rightLines.length) {
       console.warn("loadLinesAbove: uneven zip");
     }

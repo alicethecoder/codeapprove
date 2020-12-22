@@ -2,7 +2,7 @@ import { OctokitResponse } from "@octokit/types";
 
 type OctokitFunction<T, R> = (params: T) => Promise<OctokitResponse<R>>;
 
-// TODO: Clear this sometimes!
+// TODO(polish): Clear this sometimes!
 const _CACHE: Record<string, Record<string, string>> = {};
 
 export async function call<T, R>(

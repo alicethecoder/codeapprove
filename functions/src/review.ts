@@ -27,7 +27,7 @@ export const onReviewWrite = functions.firestore
       : undefined;
     const after = change.after.data() as Review;
 
-    // TODO: This function goes in a loop!
+    // TODO(stop): This function goes in a loop!
     // Check for a change in review state and recalculate status
     let newStatus: ReviewStatus | undefined = undefined;
     if (!reviewStatesEqual(before?.state, after?.state)) {
@@ -38,7 +38,7 @@ export const onReviewWrite = functions.firestore
         const reviewStatus = review.state.status;
 
         // When a review is closed, we don't do anything
-        // TODO: Probably should do this outside the transaction!
+        // TODO(stop): Probably should do this outside the transaction!
         if (review.state.closed) {
           newStatus = reviewStatus;
         } else {
@@ -55,7 +55,7 @@ export const onReviewWrite = functions.firestore
       const gh = await githubAuth.getAuthorizedRepoGithub(org, repo);
 
       // Add a review and a comment
-      // TODO: This should also happen on new comments! Not just new review status
+      // TODO(stop): This should also happen on new comments! Not just new review status
       if (newStatus && newStatus !== after.state.status) {
         const reviewEvent =
           newStatus === ReviewStatus.APPROVED ? "APPROVE" : "REQUEST_CHANGES";
@@ -86,7 +86,7 @@ export const onThreadWrite = functions.firestore
       return;
     }
 
-    // TODO: Should we be omitting drafts here?
+    // TODO(stop): Should we be omitting drafts here?
 
     const { org, repo, reviewId, threadId } = ctx.params;
 

@@ -13,7 +13,7 @@ service cloud.firestore {
     match /orgs/{org} {
       match /repos/{repo} {
         match /reviews/{review} {
-          // TODO: Much tighter rules
+          // TODO(stop): Much tighter rules
           allow read, write: if request.auth.uid != null;
 
           match /threads/{thread} {

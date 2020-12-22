@@ -50,7 +50,7 @@ if (!Prism.languages["markup-templating"]) {
   require("prismjs/components/prism-markup-templating.js");
 }
 
-// TODO: Will this tree-shake properly?
+// TODO(stop): Will this tree-shake properly?
 for (const lang of Object.values(LANG_MAP)) {
   if (!Prism.languages[lang]) {
     require("prismjs/components/prism-" + lang + ".js");

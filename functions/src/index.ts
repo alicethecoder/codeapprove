@@ -36,7 +36,7 @@ export const githubWebhook = functions.https.onRequest(
   serverless(getProbotConfig(), bot)
 );
 
-// TODO: Probably should hide this?
+// TODO(stop): Probably should hide this?
 export const updateThreads = functions.https.onRequest(async (req, res) => {
   const owner = req.param("owner");
   const repo = req.param("repo");
@@ -137,6 +137,6 @@ export const oauth = functions.https.onRequest(async (request, response) => {
     custom_token,
   };
 
-  // TODO: There should probably be a special path here like /customauth;
+  // TODO(polish): There should probably be a special path here like /customauth;
   response.redirect(`${baseUrl()}/signin?${qs.stringify(res)}`);
 });

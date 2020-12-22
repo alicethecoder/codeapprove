@@ -53,7 +53,7 @@ export default class AuthModule extends VuexModule {
     this.user!.githubToken = opts.githubToken;
     this.user!.githubExpiry = opts.githubExpiry;
 
-    // TODO: Could I just call setUser?
+    // TODO(polish): Could I just call setUser?
     localStorage.setItem("user", JSON.stringify(this.user));
   }
 

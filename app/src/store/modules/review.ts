@@ -328,9 +328,6 @@ export default class ReviewModule extends VuexModule {
 
   @Mutation
   public setReviewer(opts: { login: string; approved?: boolean }) {
-    // TODO: Can this whole method just react to Firestore instead?
-    //       Can we use Firestore array operations?
-
     if (opts.approved !== undefined) {
       addReviewer(this.review, opts.login);
     } else {
@@ -463,7 +460,7 @@ export default class ReviewModule extends VuexModule {
     }
 
     // Find all threads which are pending resolution and update them
-    // TODO: Is this safe? Is there any way we ever clobber someone else here?
+    // TODO(stop): Is this safe? Is there any way we ever clobber someone else here?
     const pendingResolutionThreads = this.threads
       .filter(t => t.pendingResolved)
       .filter(t => !t.resolved);
@@ -540,6 +537,6 @@ export default class ReviewModule extends VuexModule {
       });
     }
 
-    // TODO: At this point the resolution state of the review may have changed!
+    // TODO(stop): At this point the resolution state of the review may have changed!
   }
 }

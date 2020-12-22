@@ -195,7 +195,7 @@ export function renderChange(
   change: parseDiff.Change | undefined,
   side: Side
 ): RenderedChange {
-  // TODO: Drop this block and remove optional
+  // TODO(polish): Drop this block and remove optional
   if (!change) {
     return EMPTY_RENDERED;
   }

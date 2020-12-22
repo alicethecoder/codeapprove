@@ -234,7 +234,7 @@ export default class CommentThread extends Mixins(EventEnhancer)
     // Start the event chain which goes through DiffLine, ChangeEntry, and PullRequest
     this.bubbleUp(partialEvt);
 
-    // TODO: Need some kind of "pending" state until the thing hits the server
+    // TODO(stop): Need some kind of "pending" state until the thing hits the server
 
     // Reset local state
     this.draftComment = "";

@@ -85,11 +85,11 @@ export async function getAuthorizedGitHub(
         return token.token;
       },
       getExpiry: () => {
-        // TODO: Deal with this possibility
+        // TODO(polish): Deal with this possibility
         return Number.MAX_SAFE_INTEGER;
       },
       refreshAuth: async () => {
-        // TODO: Deal with this possibility
+        // TODO(polish): Deal with this possibility
       },
     },
     appId

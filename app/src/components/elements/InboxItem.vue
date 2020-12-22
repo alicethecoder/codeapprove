@@ -4,11 +4,11 @@
       `/pr/${item.metadata.owner}/${item.metadata.repo}/${item.metadata.number}`
     "
   >
-    <!-- TODO: Some of these classes should be outside -->
+    <!-- TODO(polish): Some of these classes should be outside -->
     <div
       class="flex items-center bg-dark-3 px-4 py-2 mb-4 border-dark-0 shadow dark-shadow rounded"
     >
-      <!-- TODO: Could use JS to keep these columns the same width dynamically instead of w-1/3 -->
+      <!-- TODO(polish): Could use JS to keep these columns the same width dynamically instead of w-1/3 -->
       <span
         :class="statusClass(item.state.status).text"
         class="w-1/3 text-lg font-bold mr-4"

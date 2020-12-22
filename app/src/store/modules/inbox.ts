@@ -36,7 +36,7 @@ export default class InboxModule extends VuexModule {
 
     const latch = new CountdownLatch(2);
 
-    // TODO: Add ordering in queries
+    // TODO(stop): Add ordering in queries
     const outgoingUnsub = firestore()
       .collectionGroup("reviews")
       .where("metadata.author", "==", opts.login)

@@ -55,7 +55,7 @@ export default class App extends Vue {
     // Initialize Firebase Analytics (built-in events)
     analytics();
 
-    // TODO: This should be in the auth module itself
+    // TODO(polish): This should be in the auth module itself
     this.authUnsub = auth().onAuthStateChanged(user => {
       if (!user) {
         this.authModule.setUser(null);
@@ -138,7 +138,7 @@ input:focus {
   outline: none;
 }
 
-// TODO: This should be a postcss extension
+// TODO(polish): This should be a postcss extension
 .dark-shadow {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
 }
@@ -150,7 +150,6 @@ input:focus {
 }
 
 .btn-small {
-  /** TODO: This should be applied to all icon buttons! */
   @apply flex flex-row items-center;
   @apply text-sm;
   @apply px-2;

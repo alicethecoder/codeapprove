@@ -2,7 +2,7 @@ module.exports = {
   important: false,
   theme: {
     fontFamily: {
-      // TODO: Probably make these fall back on the standards: https://tailwindcss.com/docs/font-family#app
+      // TODO(polish): Probably make these fall back on the standards: https://tailwindcss.com/docs/font-family#app
       display: ["Rubik", "sans-serif"],
       body: ["Roboto", "sans-serif"]
     },

@@ -23,7 +23,7 @@ export function reviewPath(opts: {
   repo: string;
   number: number;
 }) {
-  // TODO: How bad is the hotspotting caused by using the number as the doc key?
+  // TODO(stop): How bad is the hotspotting caused by using the number as the doc key?
   return `${repoPath(opts)}/reviews/${opts.number}`;
 }
 

@@ -3,13 +3,15 @@ export interface Installation {
   repo_id: number;
 }
 
-export interface ReviewIdentifier {
+export type ReviewIdentifier = Pick<
+  ReviewMetadata,
+  "owner" | "repo" | "number"
+>;
+
+export interface ReviewMetadata extends ReviewIdentifier {
   owner: string;
   repo: string;
   number: number;
-}
-
-export interface ReviewMetadata extends ReviewIdentifier {
   author: string;
   title: string;
   base: {
@@ -72,6 +74,9 @@ export interface ReviewState {
 
   // Number of unresolved threads
   unresolved: number;
+
+  // Time of the last comment
+  last_comment: number;
 }
 
 export interface Review {

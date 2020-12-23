@@ -248,6 +248,7 @@ export async function createNewPullRequest(
       reviewers: [],
       approvers: [],
       unresolved: 0,
+      last_comment: 0,
     },
   };
 

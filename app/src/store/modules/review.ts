@@ -60,8 +60,7 @@ export default class ReviewModule extends VuexModule {
 
   // Local estimate of review state
   public estimatedState = {
-    status: ReviewStatus.NEEDS_REVIEW,
-    unresolved: 0
+    status: ReviewStatus.NEEDS_REVIEW
   };
 
   // The review itself
@@ -87,7 +86,8 @@ export default class ReviewModule extends VuexModule {
       closed: false,
       reviewers: [],
       approvers: [],
-      unresolved: 0
+      unresolved: 0,
+      last_comment: 0
     }
   };
 
@@ -102,7 +102,7 @@ export default class ReviewModule extends VuexModule {
       toFirestore: (modelObject: T) => {
         return modelObject;
       },
-      fromFirestore: (snapshot, options) => {
+      fromFirestore: (snapshot, _) => {
         return snapshot.data() as T;
       }
     };
@@ -132,6 +132,10 @@ export default class ReviewModule extends VuexModule {
 
   get drafts() {
     return this.comments.filter(x => x.draft);
+  }
+
+  get numUnresolvedThreads() {
+    return this.threads.filter(x => !x.draft && !x.resolved).length;
   }
 
   get commentsByThread() {
@@ -272,21 +276,20 @@ export default class ReviewModule extends VuexModule {
       return;
     }
 
-    // Estimate unresolved count based on local
-    this.estimatedState.unresolved = this.threads.filter(t => {
-      return !t.draft && !t.resolved;
-    }).length;
-
+    // Use server state but update unresolved threads
+    const unresolved = this.threads.filter(x => !x.draft && !x.resolved).length;
     const newState = {
       ...this.review.state,
-      unresolved: this.estimatedState.unresolved
+      unresolved
     };
 
     // Estimate review status
     this.estimatedState.status = calculateReviewStatus(newState);
     if (this.estimatedState.status !== this.review.state.status) {
       console.log(
-        `calculateReviewStatus: ${this.review.state.status} --> ${this.estimatedState.status}`
+        `calculateReviewStatus(${JSON.stringify(newState)}): ${
+          this.review.state.status
+        } --> ${this.estimatedState.status}`
       );
     }
   }
@@ -495,6 +498,11 @@ export default class ReviewModule extends VuexModule {
         }
       );
     }
+
+    // Set the review time
+    batch.update(ReviewModule.reviewRef(this.review.metadata), {
+      "state.last_comment": nowTime
+    });
 
     // Estimate local state
     this.context.commit("calculateReviewStatus");

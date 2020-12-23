@@ -33,8 +33,7 @@ export const onReviewWrite = functions.firestore
     if (!reviewStatesEqual(before?.state, after?.state)) {
       await admin.firestore().runTransaction(async (t) => {
         const ref = change.after.ref;
-        const reviewSnap = await t.get(ref);
-        const review = reviewSnap.data() as Review;
+        const review = (await t.get(ref)).data() as Review;
         const reviewStatus = review.state.status;
 
         // When a review is closed, we don't do anything
@@ -56,8 +55,26 @@ export const onReviewWrite = functions.firestore
         return;
       }
 
-      // TODO(stop): Need to also email on new comment
-      if (newStatus !== after.state.status) {
+      // Update the GitHub review when one of:
+      // 1) The top-level status is changing
+      // 2) There is a new comment
+      const statusChanged = newStatus !== after.state.status;
+      if (statusChanged) {
+        console.log(`status changed: ${after.state.status} --> ${newStatus}}`);
+      }
+      const hasNewComment =
+        before && before.state.last_comment < after.state.last_comment;
+      if (hasNewComment) {
+        console.log(
+          `new comment: ${new Date(
+            before!.state.last_comment
+          ).toISOString()} --> ${new Date(
+            after.state.last_comment
+          ).toISOString()}`
+        );
+      }
+
+      if (statusChanged || hasNewComment) {
         // Authorize as the Github App
         const gh = await githubAuth.getAuthorizedRepoGithub(org, repo);
 
@@ -92,10 +109,6 @@ export const onReviewWrite = functions.firestore
       }
     }
   });
-
-// TODO: When do we want to notify?
-//  - Change of status
-//  - New comment
 
 export const onThreadWrite = functions.firestore
   .document("orgs/{org}/repos/{repo}/reviews/{reviewId}/threads/{threadId}")

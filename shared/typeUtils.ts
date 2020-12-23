@@ -52,6 +52,7 @@ export function reviewStatesEqual(a?: ReviewState, b?: ReviewState): boolean {
     a.status === b.status &&
     a.closed === b.closed &&
     a.unresolved === b.unresolved &&
+    a.last_comment === b.last_comment &&
     arraysEqual(a.reviewers, b.reviewers) &&
     arraysEqual(a.approvers, b.approvers)
   );
@@ -156,7 +157,7 @@ function threadsTable(threads: Thread[]): string {
     }
   }
 
-  const table = ["| File | # Comments | # Unresolved |", "|---|---|---|"];
+  const table = ["| File | # Threads | # Unresolved |", "|---|---|---|"];
   Object.keys(files).forEach((f) => {
     table.push(`| \`${f}\` | ${files[f].total} | ${files[f].unresolved} |`);
   });
@@ -183,6 +184,23 @@ export function reviewersTable(state: ReviewState) {
   return table.join("\n");
 }
 
+export function formatTimestamp(timestamp: number) {
+  const locale =
+    typeof navigator !== "undefined" && navigator.language
+      ? navigator.language
+      : "en-US";
+
+  // Ex: "Sep 20, 9:01AM"
+  const dateFormat = new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "2-digit",
+    hour: "numeric",
+    minute: "numeric",
+  });
+
+  return dateFormat.format(new Date(timestamp));
+}
+
 export function getReviewComment(
   metadata: ReviewMetadata,
   state: ReviewState,
@@ -196,9 +214,12 @@ export function getReviewComment(
 [${describeStatus(state.status)}](${url})
 
 #### Reviewers
+
 ${reviewersTable(state)}
 
 #### Comments
+_Last comment: ${formatTimestamp(state.last_comment)}_
+
 ${threadsTable(threads)}`;
 }
 

@@ -643,10 +643,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   get numUnresolvedThreads() {
-    const unresolved: Thread[] = this.reviewModule.threads.filter(
-      x => !x.draft && !x.resolved
-    );
-    return unresolved.length;
+    return this.reviewModule.numUnresolvedThreads;
   }
 
   // TODO(polish): Move this to a static utilitiy

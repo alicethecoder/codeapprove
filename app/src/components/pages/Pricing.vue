@@ -96,16 +96,15 @@ export default class Pricing extends Vue {
       { text: "Full CodeApprove experience", status: "green" },
       { text: "Unlimited collaborators", status: "green" },
       { text: "1 public repo", status: "yellow" },
-      { text: "0 GitHub orgs", status: "red" },
       { text: "0 private repos", status: "red" }
     ]
   };
 
   PLAN_ORG: Plan = {
-    name: "Org",
+    name: "Pro",
     description:
-      "Use CodeApprove on unlimited public repositories in a single org. Perfect for large open-source projects.",
-    price: 49,
+      "Use CodeApprove on all your public repositories in a single org. Perfect for large open-source projects.",
+    price: 29,
     unit: "org",
     subUnit: "(per month)",
     cta: "Coming Soon",
@@ -113,7 +112,6 @@ export default class Pricing extends Vue {
       { text: "Full CodeApprove experience", status: "green" },
       { text: "Unlimited collaborators", status: "green" },
       { text: "Unlimited public repos", status: "green" },
-      { text: "1 GitHub org", status: "yellow" },
       { text: "0 private repos", status: "red" }
     ]
   };
@@ -121,8 +119,8 @@ export default class Pricing extends Vue {
   PLAN_ENTERPRISE: Plan = {
     name: "Enterprise",
     description:
-      "Use CodeApprove on unlimited public or private repositories across orgs. Best for large teams.",
-    price: 19,
+      "Use CodeApprove on unlimited public and private repositories. Best for large teams.",
+    price: 7,
     unit: "user",
     subUnit: "(per month)",
     cta: "Coming Soon",
@@ -130,7 +128,6 @@ export default class Pricing extends Vue {
       { text: "Full CodeApprove experience", status: "green" },
       { text: "Unlimited collaborators", status: "green" },
       { text: "Unlimited public repos", status: "green" },
-      { text: "Unlimited GitHub orgs", status: "green" },
       { text: "Unlimited private repos", status: "green" }
     ]
   };

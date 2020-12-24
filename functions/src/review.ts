@@ -65,13 +65,9 @@ export const onReviewWrite = functions.firestore
       const hasNewComment =
         before && before.state.last_comment < after.state.last_comment;
       if (hasNewComment) {
-        console.log(
-          `new comment: ${new Date(
-            before!.state.last_comment
-          ).toISOString()} --> ${new Date(
-            after.state.last_comment
-          ).toISOString()}`
-        );
+        const oldTime = new Date(before!.state.last_comment).toISOString();
+        const newTime = new Date(after.state.last_comment).toISOString();
+        console.log(`new comment: ${oldTime} --> ${newTime}`);
       }
 
       if (statusChanged || hasNewComment) {

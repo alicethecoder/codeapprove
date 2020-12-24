@@ -108,6 +108,4 @@ export default class SignIn extends Vue {
 }
 </script>
 
-<style lang="scss">
-// None ...
-</style>
+<style lang="postcss"></style>

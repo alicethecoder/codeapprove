@@ -232,14 +232,14 @@ export default class DiffLine extends Mixins(EventEnhancer)
 
   public bgClass(change: RenderedChange): string {
     if (!this.rendered.commentsEnabled) {
-      return "bg-gray-700";
+      return "bg-gray-500";
     }
 
     switch (change.type) {
       case "del":
-        return "bg-red-700";
+        return "bg-red-500";
       case "add":
-        return "bg-green-700";
+        return "bg-green-500";
       default:
         return "hidden";
     }
@@ -272,7 +272,7 @@ code {
   height: 100%;
   z-index: 2;
 
-  opacity: 0.15;
+  opacity: 0.1;
 }
 
 .ib {

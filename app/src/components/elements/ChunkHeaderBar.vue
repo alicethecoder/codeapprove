@@ -2,7 +2,7 @@
   <div
     class="w-full py-1 px-2 flex items-center text-blue-500 border-b border-t border-blue-500"
   >
-    <pre class="inline bg-dark-3">{{ text }}</pre>
+    <pre class="inline">{{ text }}</pre>
     <span class="flex-grow"></span>
     <a v-if="showAbove" @click.stop="expandAbove"
       ><code class="ml-2">+earlier</code></a

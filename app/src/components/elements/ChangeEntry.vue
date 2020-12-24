@@ -1,7 +1,7 @@
 <template>
   <div
     :class="{ active: active }"
-    class="rounded overflow-hidden my-2 dark-shadow border border-dark-0"
+    class="rounded overflow-hidden my-2 shadow dark-shadow border border-dark-0"
   >
     <!-- Bind hotkeys when active -->
     <div v-if="active && expanded" v-hotkey="hotKeyMap" />
@@ -51,7 +51,7 @@
     <div
       v-else-if="loaded || expanded"
       v-show="expanded"
-      class="bg-dark-4 overflow-hidden"
+      class="bg-dark-2 overflow-hidden"
     >
       <template v-for="({ chunk, pairs }, i) in chunks">
         <ChunkHeaderBar

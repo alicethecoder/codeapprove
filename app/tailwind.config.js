@@ -1,5 +1,9 @@
 module.exports = {
   important: false,
+  purge: {
+    enabled: process.env.NODE_ENV === "production",
+    content: ["./src/*.vue", "./components/**/*.vue"]
+  },
   theme: {
     fontFamily: {
       // TODO(polish): Probably make these fall back on the standards: https://tailwindcss.com/docs/font-family#app

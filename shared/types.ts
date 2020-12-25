@@ -3,6 +3,21 @@ export interface Installation {
   repo_id: number;
 }
 
+export interface Org {
+  plan: string;
+}
+
+export interface Repo {
+  owner: string;
+  name: string;
+}
+
+export interface User {
+  login: string;
+  refresh_token: string;
+  refresh_token_expires: number;
+}
+
 export type ReviewIdentifier = Pick<
   ReviewMetadata,
   "owner" | "repo" | "number"

@@ -10,6 +10,7 @@ import {
   calculateReviewStatus,
 } from "../../shared/typeUtils";
 import { reviewPath, threadsPath } from "../../shared/database";
+import { docRef, collectionRef } from "./databaseUtil";
 
 export const onReviewWrite = functions.firestore
   .document("orgs/{org}/repos/{repo}/reviews/{reviewId}")
@@ -83,16 +84,15 @@ export const onReviewWrite = functions.firestore
           status: newStatus,
         };
 
-        const threadsRef = admin.firestore().collection(
+        const threadsRef = collectionRef<Thread>(
+          admin.firestore(),
           threadsPath({
             owner: org,
             repo: repo,
             number: after.metadata.number,
           })
         );
-        const threads = (await threadsRef.get()).docs.map(
-          (d) => d.data() as Thread
-        );
+        const threads = (await threadsRef.get()).docs.map((d) => d.data());
 
         const body = getReviewComment(after.metadata, state, threads);
         await gh.reviewPullRequest(
@@ -132,9 +132,13 @@ export const onThreadWrite = functions.firestore
 
       // This will trigger the thread onWrite function
       console.log(`Incrementing state.unresolved by ${diff}`);
-      await admin
-        .firestore()
-        .doc(reviewPath({ owner: org, repo: repo, number: reviewId }))
-        .update("state.unresolved", admin.firestore.FieldValue.increment(diff));
+      const reviewRef = docRef<Review>(
+        admin.firestore(),
+        reviewPath({ owner: org, repo: repo, number: reviewId })
+      );
+      await reviewRef.update(
+        "state.unresolved",
+        admin.firestore.FieldValue.increment(diff)
+      );
     }
   });

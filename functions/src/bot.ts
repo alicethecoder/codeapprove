@@ -1,9 +1,8 @@
-import { Application } from "probot";
 import * as admin from "firebase-admin";
 
-import * as config from "./config";
 import * as log from "./logger";
 import * as githubAuth from "./githubAuth";
+import { docRef, collectionRef } from "./databaseUtil";
 
 import {
   orgPath,
@@ -20,29 +19,38 @@ import {
   ThreadArgs,
   Thread,
   ReviewMetadataSource,
+  Org,
+  Repo,
 } from "../../shared/types";
 import { ApplicationFunctionOptions } from "probot/lib/types";
 import { calculateReviewStatus } from "../../shared/typeUtils";
 
 export function bot(options: ApplicationFunctionOptions) {
   const app = options.app;
+  const db = admin.firestore();
 
   app.on("installation.created", async (context) => {
     log.info("installation.created");
 
     const installation_id = context.payload.installation.id;
     for (const repository of context.payload.repositories) {
-      const [owner, repo]: string[] = repository.full_name.split("/");
+      const [owner, repo] = repository.full_name.split("/");
       const repo_id = repository.id;
 
-      await onRepoInstalled(owner, repo, repo_id, installation_id);
+      await onRepoInstalled(db, owner, repo, repo_id, installation_id);
     }
   });
 
   app.on("installation_repositories.added", async (context) => {
     log.info("installation_repositories.added");
 
-    // TODO(stop): Implement
+    const installation_id = context.payload.installation.id;
+    for (const repository of context.payload.repositories_added) {
+      const [owner, repo] = repository.full_name.split("/");
+      const repo_id = repository.id;
+
+      await onRepoInstalled(db, owner, repo, repo_id, installation_id);
+    }
   });
 
   app.on("installation_repositories.removed", async (context) => {
@@ -65,7 +73,7 @@ export function bot(options: ApplicationFunctionOptions) {
     const pull = context.payload.pull_request;
 
     // TODO(stop): Add the bot as a reviewer!
-    await createNewPullRequest(owner, repo, pull);
+    await createNewPullRequest(db, owner, repo, pull);
   });
 
   app.on("pull_request.closed", async (context) => {
@@ -82,7 +90,7 @@ export function bot(options: ApplicationFunctionOptions) {
       ? ReviewStatus.CLOSED_MERGED
       : ReviewStatus.CLOSED_UNMERGED;
 
-    const ref = admin.firestore().doc(reviewPath({ owner, repo, number }));
+    const ref = docRef<Review>(db, reviewPath({ owner, repo, number }));
     const updates = {
       "state.closed": true,
       "state.status": newStatus,
@@ -99,9 +107,12 @@ export function bot(options: ApplicationFunctionOptions) {
 
     // When re-opened we need to change the status back to one of the
     // non-closed options.
-    const ref = admin.firestore().doc(reviewPath({ owner, repo, number }));
-    await admin.firestore().runTransaction(async (t) => {
-      const review = (await t.get(ref)).data() as Review;
+    const ref = docRef<Review>(db, reviewPath({ owner, repo, number }));
+    await db.runTransaction(async (t) => {
+      const review = (await t.get(ref)).data();
+      if (!review) {
+        return;
+      }
 
       const newStatus = calculateReviewStatus(review.state);
       const updates = {
@@ -132,18 +143,17 @@ export function bot(options: ApplicationFunctionOptions) {
     // Find all open reviews with this as the BASE, pushes to HEAD
     // are handled by the pull_request.synchronize event
     const label = `${owner}:${branch}`;
-    const q = admin
-      .firestore()
-      .collection(reviewsPath({ owner, repo }))
+    const reviewsRef = collectionRef<Review>(db, reviewsPath({ owner, repo }));
+    const q = reviewsRef
       .where("metadata.base.label", "==", label)
       .where("state.status.closed", "==", false);
 
-    const reviews = (await q.get()).docs.map((d) => d.data() as Review);
+    const reviews = (await q.get()).docs.map((d) => d.data());
     for (const review of reviews) {
       log.info(
         `Updating ${owner}/${repo}/${review.metadata.number} after push to ${label}`
       );
-      await updatePullRequest(owner, repo, review.metadata.number);
+      await updatePullRequest(db, owner, repo, review.metadata.number);
     }
   });
 
@@ -160,18 +170,19 @@ export function bot(options: ApplicationFunctionOptions) {
     const repo = context.payload.repository.name;
     const number = context.payload.number;
 
-    await updatePullRequest(owner, repo, number);
+    await updatePullRequest(db, owner, repo, number);
   });
 }
 
 export async function onRepoInstalled(
+  db: admin.firestore.Firestore,
   owner: string,
   repo: string,
   repo_id: number,
   installation_id: number
 ) {
   log.info(`onRepoInstalled: ${owner}/${repo}`);
-  const orgRef = admin.firestore().doc(orgPath({ owner }));
+  const orgRef = docRef<Org>(db, orgPath({ owner }));
 
   // Make sure the org exists
   const orgSnap = await orgRef.get();
@@ -182,9 +193,9 @@ export async function onRepoInstalled(
     });
   }
 
-  const repoRef = admin.firestore().doc(repoPath({ owner, repo }));
-
+  const repoRef = docRef<Repo>(db, repoPath({ owner, repo }));
   const repoSnap = await repoRef.get();
+
   if (!repoSnap.exists) {
     log.info(`Creating repo: ${repo}`);
     await repoRef.set({
@@ -204,9 +215,10 @@ export async function onRepoInstalled(
   // 1) Create the installation document
   // TODO(stop): Can there be more than one installation of a repo?
   log.info(`Creating installation for ${owner}/${repo}}`, installation);
-  const installationRef = admin
-    .firestore()
-    .doc(installationPath({ owner, repo }));
+  const installationRef = docRef<Installation>(
+    db,
+    installationPath({ owner, repo })
+  );
   await installationRef.set(installation);
 
   // 2) For each open pull request on the repo, create a review document
@@ -216,11 +228,12 @@ export async function onRepoInstalled(
   const pulls = await gh.getOpenPulls(owner, repo);
   for (const pull of pulls) {
     log.info(`Creating review for PR ${owner}/${repo}/pulls/${pull.number}`);
-    await createNewPullRequest(owner, repo, pull);
+    await createNewPullRequest(db, owner, repo, pull);
   }
 }
 
 export async function createNewPullRequest(
+  db: admin.firestore.Firestore,
   owner: string,
   repo: string,
   pull: ReviewMetadataSource
@@ -252,13 +265,15 @@ export async function createNewPullRequest(
     },
   };
 
-  const reviewRef = admin
-    .firestore()
-    .doc(reviewPath({ owner, repo, number: pull.number }));
+  const reviewRef = docRef<Review>(
+    db,
+    reviewPath({ owner, repo, number: pull.number })
+  );
   await reviewRef.set(review);
 }
 
 export async function updatePullRequest(
+  db: admin.firestore.Firestore,
   owner: string,
   repo: string,
   number: number
@@ -273,8 +288,12 @@ export async function updatePullRequest(
   const headSha = pr.head.sha;
 
   // Update the review object with latest metadata
-  const reviewRef = admin.firestore().doc(reviewPath({ owner, repo, number }));
-  const review = (await reviewRef.get()).data() as Review;
+  const reviewRef = docRef<Review>(db, reviewPath({ owner, repo, number }));
+  const review = (await reviewRef.get()).data();
+  if (!review) {
+    throw new Error(`No such review: ${reviewRef.path}`);
+  }
+
   review.metadata.title = pr.title;
   review.metadata.base = {
     sha: pr.base.sha,
@@ -288,14 +307,15 @@ export async function updatePullRequest(
   await reviewRef.update("metadata", review.metadata);
 
   // Load and update all threads
-  const threadsRef = admin
-    .firestore()
-    .collection(threadsPath({ owner, repo, number }));
+  const threadsRef = collectionRef<Thread>(
+    db,
+    threadsPath({ owner, repo, number })
+  );
   const threadsSnap = await threadsRef.get();
 
   // TODO(stop): What if the base branch changes? What if there was a force push?
   for (const thread of threadsSnap.docs) {
-    const data = thread.data() as Thread;
+    const data = thread.data();
     const { sha, file, line, lineContent } = data.currentArgs;
 
     if (sha !== headSha) {

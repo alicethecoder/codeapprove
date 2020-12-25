@@ -12,9 +12,9 @@ import { serverless, ProbotConfig } from "./probot-serverless-gcf";
 import { bot, updatePullRequest } from "./bot";
 import { baseUrl } from "../../shared/config";
 
-const ax = api.getAxios();
-
 admin.initializeApp();
+
+const ax = api.getAxios();
 
 function getProbotConfig(): ProbotConfig {
   return {
@@ -42,7 +42,7 @@ export const updateThreads = functions.https.onRequest(async (req, res) => {
   const repo = req.param("repo");
   const number = Number.parseInt(req.param("number"));
 
-  await updatePullRequest(owner, repo, number);
+  await updatePullRequest(admin.firestore(), owner, repo, number);
 
   res.json({
     status: "ok",

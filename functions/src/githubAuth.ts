@@ -8,6 +8,7 @@ import * as logger from "./logger";
 import { Github } from "../../shared/github";
 import { installationPath } from "../../shared/database";
 import { Installation } from "../../shared/types";
+import { docRef } from "./databaseUtil";
 
 type AppAuth = ReturnType<typeof createAppAuth>;
 
@@ -99,17 +100,17 @@ export async function getAuthorizedRepoGithub(
   repo: string
 ): Promise<Github> {
   // Get the installation ID
-  const installationRef = admin
-    .firestore()
-    .doc(installationPath({ owner, repo }));
-
+  const installationRef = docRef<Installation>(
+    admin.firestore(),
+    installationPath({ owner, repo })
+  );
   const installationDoc = await installationRef.get();
-  const installation = installationDoc.data() as Installation;
+  const installation = installationDoc.data();
 
   // Get a GitHub instance authorized as the installation
   const gh = await getAuthorizedGitHub(
-    installation.installation_id,
-    installation.repo_id
+    installation!.installation_id,
+    installation!.repo_id
   );
 
   return gh;

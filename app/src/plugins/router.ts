@@ -11,6 +11,7 @@ import SignIn from "@/components/pages/SignIn.vue";
 import PullRequest from "@/components/pages/PullRequest.vue";
 import Inbox from "@/components/pages/Inbox.vue";
 import Pricing from "@/components/pages/Pricing.vue";
+import FourOhFour from "@/components/pages/FourOhFour.vue";
 
 import store from "@/store";
 import * as cookies from "../plugins/cookies";
@@ -42,6 +43,10 @@ const router = new VueRouter({
     {
       path: "/pricing",
       component: Pricing
+    },
+    {
+      path: "/404",
+      component: FourOhFour
     }
   ],
   scrollBehavior(to, from, savedPosition) {

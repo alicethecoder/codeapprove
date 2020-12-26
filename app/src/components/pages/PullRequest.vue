@@ -330,20 +330,29 @@ export default class PullRequest extends Mixins(EventEnhancer)
     const { owner, repo } = params;
     const number = Number.parseInt(params.number);
 
-    // TODO(stop): What if the PR does not exist?
-
     // TODO(polish): This should happen inside VueX
     // TODO(stop): prData.pr is mostly the same as the metadata in Firestore except:
     //  - body
     //  - head.ref, head.user.login
     //  - base.ref, base.user.login
-    this.prData = await this.github.getPullRequest(owner, repo, number);
+    try {
+      this.prData = await this.github.getPullRequest(owner, repo, number);
+    } catch (e) {
+      // TODO(stop): This also happens when the branch is deleted
+      console.warn(e);
+      this.$router.push("/404");
+      return;
+    }
 
-    // TODO(stop): Call this again on base change?
     await this.reviewModule.initializeReview({
       id: { owner, repo, number },
       data: this.assertPrData
     });
+
+    if (!this.reviewModule.reviewLoaded) {
+      console.warn(`Unable to load review ${owner}/${repo}/${number}`);
+      this.$router.push("/404");
+    }
 
     // TODO(stop): Handle changes to PR (similar to GitHub "refresh" button)
     this.meta = Object.freeze(this.reviewModule.review.metadata);

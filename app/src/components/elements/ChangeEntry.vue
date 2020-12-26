@@ -235,7 +235,7 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
       return;
     }
 
-    // TODO(stop): Add some benchmarking here!
+    // TODO(polish): Add some benchmarking here!
     const isLarge = this.totalLength >= 50;
 
     if (!isLarge) {

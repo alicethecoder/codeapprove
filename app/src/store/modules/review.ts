@@ -66,6 +66,8 @@ export default class ReviewModule extends VuexModule {
     status: ReviewStatus.NEEDS_REVIEW
   };
 
+  public reviewLoaded = false;
+
   // The review itself
   public review: Review = {
     metadata: {
@@ -182,6 +184,7 @@ export default class ReviewModule extends VuexModule {
     data: PullRequestData;
   }) {
     this.context.commit("stopListening");
+    this.context.commit("setReviewLoaded", false);
 
     const latch = new CountdownLatch(3);
 
@@ -192,6 +195,7 @@ export default class ReviewModule extends VuexModule {
           `review#onSnapshot: pending=${snap.metadata.hasPendingWrites}`
         );
         const review = snap.data();
+        this.context.commit("setReviewLoaded", snap.exists);
 
         if (review) {
           this.context.commit("setReviewMetadata", review.metadata);
@@ -276,16 +280,6 @@ export default class ReviewModule extends VuexModule {
   }
 
   @Mutation
-  public setReviewMetadata(metadata: ReviewMetadata) {
-    this.review.metadata = metadata;
-  }
-
-  @Mutation
-  public setReviewState(state: ReviewState) {
-    this.review.state = state;
-  }
-
-  @Mutation
   public calculateReviewStatus() {
     if (this.review.state.closed) {
       this.estimatedState.status = this.review.state.status;
@@ -308,6 +302,21 @@ export default class ReviewModule extends VuexModule {
         } --> ${this.estimatedState.status}`
       );
     }
+  }
+
+  @Mutation
+  public setReviewLoaded(reviewLoaded: boolean) {
+    this.reviewLoaded = reviewLoaded;
+  }
+
+  @Mutation
+  public setReviewMetadata(metadata: ReviewMetadata) {
+    this.review.metadata = metadata;
+  }
+
+  @Mutation
+  public setReviewState(state: ReviewState) {
+    this.review.state = state;
   }
 
   @Mutation

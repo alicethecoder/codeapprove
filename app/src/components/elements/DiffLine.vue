@@ -75,7 +75,7 @@ import CommentThread from "@/components/elements/CommentThread.vue";
 import { EventEnhancer } from "../mixins/EventEnhancer";
 import ReviewModule from "../../store/modules/review";
 import { ThreadPair, LangPair, Side, SidePair } from "../../model/review";
-import { Comment, ThreadPositionArgs, Thread } from "../../../../shared/types";
+import { Comment, Thread } from "../../../../shared/types";
 import {
   RenderedChangePair,
   renderChange,

@@ -127,7 +127,7 @@ import * as firebase from "firebase/app";
 
 import { EventEnhancer } from "../../components/mixins/EventEnhancer";
 import MarkdownContent from "@/components/elements/MarkdownContent.vue";
-import { Thread, ThreadPositionArgs, Comment } from "../../../../shared/types";
+import { Thread, Comment } from "../../../../shared/types";
 import AuthModule from "../../store/modules/auth";
 import ReviewModule from "../../store/modules/review";
 import { auth } from "../../plugins/firebase";

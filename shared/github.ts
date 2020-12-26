@@ -264,9 +264,10 @@ export class Github {
 
     // Calculate of how many lines are added/deleted (net) above the line
     const nudge = this.calculateLineNudge(fileDiff, line);
+    const newLineNumber = line + nudge;
     return {
       file: newFileName,
-      line: line + nudge,
+      line: newLineNumber,
     };
   }
 
@@ -349,6 +350,24 @@ export class Github {
 
     // At this point the line is "off the end" of the diff so the nudge won't change
     return nudge;
+  }
+
+  async getContentLine(
+    owner: string,
+    repo: string,
+    path: string,
+    ref: string,
+    line: number
+  ): Promise<string> {
+    const [content] = await this.getContentLines(
+      owner,
+      repo,
+      path,
+      ref,
+      line,
+      line
+    );
+    return content;
   }
 
   async getContentLines(

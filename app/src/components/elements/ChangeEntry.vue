@@ -96,11 +96,7 @@ import { getFileLang } from "../../plugins/prism";
 import { Github } from "../../../../shared/github";
 
 import { Side, ThreadPair } from "../../model/review";
-import {
-  ThreadPositionArgs,
-  Thread,
-  ThreadContentArgs
-} from "../../../../shared/types";
+import { Thread, ThreadArgs } from "../../../../shared/types";
 import {
   ChangePair,
   RenderedChangePair,
@@ -140,16 +136,18 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
   );
 
   public getThreads(pair: RenderedChangePair): ThreadPair {
-    const leftArgs: ThreadPositionArgs = {
+    const leftArgs: ThreadArgs = {
       sha: this.reviewModule.viewState.base,
       file: this.meta.from,
-      line: pair.left.number
+      line: pair.left.number,
+      lineContent: pair.left.content
     };
 
-    const rightArgs: ThreadPositionArgs = {
+    const rightArgs: ThreadArgs = {
       sha: this.reviewModule.viewState.head,
       file: this.meta.to,
-      line: pair.right.number
+      line: pair.right.number,
+      lineContent: pair.right.content
     };
 
     return {

@@ -99,17 +99,12 @@ export interface Review {
   state: ReviewState;
 }
 
-export interface ThreadPositionArgs {
+export interface ThreadArgs {
   file: string;
   sha: string;
   line: number;
-}
-
-export interface ThreadContentArgs {
   lineContent: string;
 }
-
-export type ThreadArgs = ThreadPositionArgs & ThreadContentArgs;
 
 export interface Thread {
   id: string;

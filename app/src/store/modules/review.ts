@@ -7,9 +7,7 @@ import {
   Thread,
   Review,
   ReviewMetadata,
-  ThreadContentArgs,
   ThreadArgs,
-  ThreadPositionArgs,
   ReviewStatus,
   ReviewState,
   ReviewIdentifier
@@ -153,7 +151,7 @@ export default class ReviewModule extends VuexModule {
   }
 
   get threadByArgs() {
-    return (args: ThreadPositionArgs | null) => {
+    return (args: ThreadArgs | null) => {
       if (args === null) {
         return null;
       }
@@ -357,8 +355,7 @@ export default class ReviewModule extends VuexModule {
   @Action({ rawError: true })
   public async newThread(opts: {
     username: string;
-    args: ThreadPositionArgs;
-    ca: ThreadContentArgs;
+    args: ThreadArgs;
   }): Promise<Thread> {
     console.log(`newThread(${JSON.stringify(opts)})`);
 
@@ -369,15 +366,14 @@ export default class ReviewModule extends VuexModule {
       );
     }
 
-    const ta: ThreadArgs = { ...opts.args, ...opts.ca };
     const thread: Thread = {
       id: uuid.v4(),
       username: opts.username,
       resolved: false,
       pendingResolved: null,
       draft: true,
-      currentArgs: ta,
-      originalArgs: ta
+      currentArgs: opts.args,
+      originalArgs: opts.args
     };
 
     // Estimate local state
@@ -518,13 +514,10 @@ export default class ReviewModule extends VuexModule {
     console.log(`review#handleAddCommentEvent(${JSON.stringify(opts)})`);
 
     const e = opts.e;
-    const threadArgs: ThreadPositionArgs = {
+    const threadArgs: ThreadArgs = {
       file: e.file,
       sha: e.sha,
-      line: e.line
-    };
-
-    const threadContentArgs: ThreadContentArgs = {
+      line: e.line,
       lineContent: e.lineContent
     };
 
@@ -532,8 +525,7 @@ export default class ReviewModule extends VuexModule {
     if (!thread) {
       thread = await this.newThread({
         username: opts.user.username,
-        args: threadArgs,
-        ca: threadContentArgs
+        args: threadArgs
       });
     }
 

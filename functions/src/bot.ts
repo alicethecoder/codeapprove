@@ -285,7 +285,6 @@ export async function updatePullRequest(
 
   // Get the latest SHA
   const pr = await gh.getPullRequestMetadata(owner, repo, number);
-  const headSha = pr.head.sha;
 
   // Update the review object with latest metadata
   const reviewRef = docRef<Review>(db, reviewPath({ owner, repo, number }));
@@ -313,13 +312,22 @@ export async function updatePullRequest(
   );
   const threadsSnap = await threadsRef.get();
 
-  // TODO(stop): What if the base branch changes? What if there was a force push?
+  // TODO(stop): What if there was a force push?
+  const headSha = pr.head.sha;
+  const baseSha = pr.base.sha;
+
   for (const thread of threadsSnap.docs) {
     const data = thread.data();
     const { sha, file, line, lineContent } = data.currentArgs;
 
-    if (sha !== headSha) {
-      log.info(`Updating thread ${thread.ref.id} from ${sha}`);
+    // TODO(stop): What if the base branch changes?
+    const baseChanged = data.originalArgs.sha !== baseSha;
+    const headChanged = data.currentArgs.sha !== headSha;
+
+    if (headChanged) {
+      log.info(
+        `Updating thread ${thread.ref.id} due to HEAD change ${sha} --> ${headSha}`
+      );
       const newLine = await gh.translateLineNumberHeadMove(
         owner,
         repo,
@@ -329,16 +337,26 @@ export async function updatePullRequest(
         line
       );
 
-      // TODO(stop): What if newLine === -1?
-      // TODO(stop): What about updated file name and line content?
-      const newLineNumber = newLine.line;
+      // TODO(stop): What if newLine === -1? Mark as outdated?
+      const newLineContent =
+        newLine.line === -1
+          ? ""
+          : await gh.getContentLine(
+              owner,
+              repo,
+              newLine.file,
+              headSha,
+              newLine.line
+            );
+
       const newArgs: ThreadArgs = {
         sha: headSha,
-        line: newLineNumber,
-        lineContent: newLineNumber === -1 ? "" : lineContent,
-        file: file,
+        line: newLine.line,
+        lineContent: newLineContent,
+        file: newLine.file,
       };
 
+      log.info("Updating thread", { current: data.currentArgs, new: newArgs });
       await thread.ref.update("currentArgs", newArgs);
     } else {
       log.info(`Thread ${thread.ref.id} is up to date at ${sha}`);

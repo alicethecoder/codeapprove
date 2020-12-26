@@ -225,9 +225,11 @@ export default class CommentThread extends Mixins(EventEnhancer)
       sha: sha
     };
 
-    // In standalone mode all of this will be known
+    // In standalone mode DiffLine and ChangeEntry are skipped,
+    // but we know all of this already.
     if (this.thread) {
       partialEvt.file = this.thread.currentArgs.file;
+      partialEvt.side = this.thread.currentArgs.side;
       partialEvt.lineContent = this.thread.currentArgs.lineContent;
     }
 

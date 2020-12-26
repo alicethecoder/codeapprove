@@ -318,7 +318,7 @@ export async function updatePullRequest(
 
   for (const thread of threadsSnap.docs) {
     const data = thread.data();
-    const { sha, file, line, lineContent } = data.currentArgs;
+    const { sha, file, side, line, lineContent } = data.currentArgs;
 
     // TODO(stop): What if the base branch changes?
     const baseChanged = data.originalArgs.sha !== baseSha;
@@ -352,6 +352,7 @@ export async function updatePullRequest(
       const newArgs: ThreadArgs = {
         sha: headSha,
         line: newLine.line,
+        side: side,
         lineContent: newLineContent,
         file: newLine.file,
       };

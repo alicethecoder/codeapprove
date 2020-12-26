@@ -74,8 +74,8 @@ import parseDiff from "parse-diff";
 import CommentThread from "@/components/elements/CommentThread.vue";
 import { EventEnhancer } from "../mixins/EventEnhancer";
 import ReviewModule from "../../store/modules/review";
-import { ThreadPair, LangPair, Side, SidePair } from "../../model/review";
-import { Comment, Thread } from "../../../../shared/types";
+import { ThreadPair, LangPair, SidePair } from "../../model/review";
+import { Comment, Thread, Side } from "../../../../shared/types";
 import {
   RenderedChangePair,
   renderChange,
@@ -138,6 +138,7 @@ export default class DiffLine extends Mixins(EventEnhancer)
     console.log("DiffLine#handleEvent");
     const base = this.reviewModule.viewState.base;
     const side: Side = e.sha === base ? "left" : "right";
+    e.side = side;
     e.lineContent = this.rendered[side].content;
     this.bubbleUp(e);
   }

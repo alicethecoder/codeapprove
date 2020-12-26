@@ -517,6 +517,7 @@ export default class ReviewModule extends VuexModule {
     const threadArgs: ThreadArgs = {
       file: e.file,
       sha: e.sha,
+      side: e.side,
       line: e.line,
       lineContent: e.lineContent
     };

@@ -99,9 +99,12 @@ export interface Review {
   state: ReviewState;
 }
 
+export type Side = "left" | "right";
+
 export interface ThreadArgs {
   file: string;
   sha: string;
+  side: Side;
   line: number;
   lineContent: string;
 }

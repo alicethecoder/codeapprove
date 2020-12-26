@@ -1,5 +1,5 @@
 import Vue from "vue";
-import { Side } from "@/model/review";
+import { Side } from "../../../shared/types";
 
 const BUS = new Vue();
 
@@ -11,7 +11,9 @@ export interface AddCommentEvent {
   content: string;
   resolve?: boolean;
 
+  // TODO(polish): Making this into ThreadArgs would be cleaner
   file: string;
+  side: Side;
   lineContent: string;
   sha: string;
 }

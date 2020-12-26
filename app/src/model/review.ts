@@ -1,7 +1,5 @@
 import { Thread, ThreadArgs } from "../../../shared/types";
 
-export type Side = "left" | "right";
-
 export interface SidePair<T> {
   left: T;
   right: T;
@@ -16,6 +14,7 @@ export function threadMatch(thread: Thread, args: ThreadArgs): boolean {
   return (
     args.file === thread.currentArgs.file &&
     args.line === thread.currentArgs.line &&
+    args.side === thread.currentArgs.side &&
     args.sha === thread.currentArgs.sha
   );
 }

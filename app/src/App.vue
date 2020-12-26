@@ -140,7 +140,7 @@ input:focus {
 
 /* TODO(polish): This should be a postcss extension */
 .dark-shadow {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
 }
 
 .btn {

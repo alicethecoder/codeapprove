@@ -276,7 +276,10 @@ export async function updatePullRequest(
   db: admin.firestore.Firestore,
   owner: string,
   repo: string,
-  number: number
+  number: number,
+  opts: {
+    force?: boolean;
+  } = {}
 ) {
   log.info(`updatePullRequest: ${owner}/${repo}/${number}`);
 
@@ -316,25 +319,28 @@ export async function updatePullRequest(
   const headSha = pr.head.sha;
   const baseSha = pr.base.sha;
 
-  for (const thread of threadsSnap.docs) {
-    const data = thread.data();
-    const { sha, file, side, line, lineContent } = data.currentArgs;
+  for (const doc of threadsSnap.docs) {
+    const thread = doc.data();
 
     // TODO(stop): What if the base branch changes?
-    const baseChanged = data.originalArgs.sha !== baseSha;
-    const headChanged = data.currentArgs.sha !== headSha;
+    const baseChanged = thread.originalArgs.sha !== baseSha;
+    const headChanged = thread.currentArgs.sha !== headSha;
 
-    if (headChanged) {
+    if (opts.force) {
+      console.log("opts.force=true, updating all threads");
+    }
+
+    if (headChanged || opts.force) {
       log.info(
-        `Updating thread ${thread.ref.id} due to HEAD change ${sha} --> ${headSha}`
+        `Updating thread ${thread.id} due to HEAD change ${thread.currentArgs.sha} --> ${headSha}`
       );
       const newLine = await gh.translateLineNumberHeadMove(
         owner,
         repo,
-        sha,
+        thread.originalArgs.sha,
         headSha,
-        file,
-        line
+        thread.originalArgs.file,
+        thread.originalArgs.line
       );
 
       // TODO(stop): What if newLine === -1? Mark as outdated?
@@ -352,15 +358,20 @@ export async function updatePullRequest(
       const newArgs: ThreadArgs = {
         sha: headSha,
         line: newLine.line,
-        side: side,
+        side: thread.currentArgs.side,
         lineContent: newLineContent,
         file: newLine.file,
       };
 
-      log.info("Updating thread", { current: data.currentArgs, new: newArgs });
-      await thread.ref.update("currentArgs", newArgs);
+      log.info("Updating thread", {
+        current: thread.currentArgs,
+        new: newArgs,
+      });
+      await doc.ref.update("currentArgs", newArgs);
     } else {
-      log.info(`Thread ${thread.ref.id} is up to date at ${sha}`);
+      log.info(
+        `Thread ${doc.ref.id} is up to date at ${thread.currentArgs.sha}`
+      );
     }
   }
 }

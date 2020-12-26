@@ -257,6 +257,7 @@ export class Github {
     // Find the file in the 'from' list
     const fileDiff = diff.find((f) => f.from === file);
     if (!fileDiff) {
+      console.log(`File ${file} is not in the 'from' list`);
       return { file, line: -1 };
     }
 
@@ -265,6 +266,36 @@ export class Github {
     // Calculate of how many lines are added/deleted (net) above the line
     const nudge = this.calculateLineNudge(fileDiff, line);
     const newLineNumber = line + nudge;
+
+    // Determine if the content changed, if so it is outdated
+    let hasAdd = false;
+    let hasDel = true;
+    for (const chunk of fileDiff.chunks) {
+      for (const change of chunk.changes) {
+        if (change.type === "add" && change.ln === line) {
+          hasAdd = true;
+        }
+
+        if (change.type === "del" && change.ln === line) {
+          hasDel = true;
+        }
+      }
+    }
+
+    if (hasDel && !hasAdd) {
+      console.log(
+        `Detected line deletion in file ${file} on line ${line} (nudge was ${nudge})`
+      );
+      return { file, line: -1 };
+    }
+
+    if (hasDel && hasAdd) {
+      console.log(`Detected del/add pair in file ${file} on line ${line}`);
+      return { file, line: -1 };
+    }
+
+    // TODO(stop): Is hasAdd without hasDel possible/meaningful?
+
     return {
       file: newFileName,
       line: newLineNumber,
@@ -411,7 +442,7 @@ export class Github {
     );
 
     if (data.encoding === "base64") {
-      if (window && window.atob) {
+      if (typeof window !== "undefined" && window.atob) {
         // Browser
         return window.atob(data.content);
       } else {

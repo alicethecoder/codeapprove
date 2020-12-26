@@ -38,11 +38,13 @@ export const githubWebhook = functions.https.onRequest(
 
 // TODO(stop): Probably should hide this?
 export const updateThreads = functions.https.onRequest(async (req, res) => {
-  const owner = req.param("owner");
-  const repo = req.param("repo");
-  const number = Number.parseInt(req.param("number"));
+  const owner = req.query.owner as string;
+  const repo = req.query.repo as string;
+  const number = Number.parseInt(req.query.number as string);
 
-  await updatePullRequest(admin.firestore(), owner, repo, number);
+  await updatePullRequest(admin.firestore(), owner, repo, number, {
+    force: true,
+  });
 
   res.json({
     status: "ok",

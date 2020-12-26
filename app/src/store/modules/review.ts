@@ -37,6 +37,7 @@ interface ViewState {
   base: string;
   head: string;
   commits: string[];
+  visibleCommits: string[];
 }
 
 const SortByTimestamp = function(a: Comment, b: Comment) {
@@ -52,7 +53,8 @@ export default class ReviewModule extends VuexModule {
     // What the user is viewing (not the actual base and head)
     base: "unknown",
     head: "unknown",
-    commits: []
+    commits: [],
+    visibleCommits: []
   };
 
   // Threads and comments which are attached to the review
@@ -156,17 +158,12 @@ export default class ReviewModule extends VuexModule {
   get threadByArgs() {
     return (args: ThreadArgs) => {
       // Filter visible threads
-      const visibleShas = this.viewState.commits.slice(
-        this.viewState.commits.indexOf(this.viewState.base),
-        this.viewState.commits.indexOf(this.viewState.head) + 1
-      );
-
       return (
         this.threads
           .filter(
             t =>
-              visibleShas.includes(t.currentArgs.sha) ||
-              visibleShas.includes(t.originalArgs.sha)
+              this.viewState.visibleCommits.includes(t.currentArgs.sha) ||
+              this.viewState.visibleCommits.includes(t.originalArgs.sha)
           )
           .find(t => shouldDisplayThread(t, args)) || null
       );
@@ -205,7 +202,8 @@ export default class ReviewModule extends VuexModule {
           this.context.commit("setViewState", {
             base: review.metadata.base.sha,
             head: review.metadata.head.sha,
-            commits
+            commits,
+            visibleCommits: commits
           });
 
           // For the review state we actually prefer our guesses
@@ -370,6 +368,11 @@ export default class ReviewModule extends VuexModule {
     console.log(`review#setBaseAndHead(${opts.base}, ${opts.head})`);
     this.viewState.base = opts.base;
     this.viewState.head = opts.head;
+
+    this.viewState.visibleCommits = this.viewState.commits.slice(
+      this.viewState.commits.indexOf(this.viewState.base),
+      this.viewState.commits.indexOf(this.viewState.head) + 1
+    );
   }
 
   @Action({ rawError: true })

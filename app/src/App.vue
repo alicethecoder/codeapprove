@@ -192,6 +192,14 @@ input:focus {
   @apply border-blue-400 text-blue-400;
 }
 
+.btn-yellow {
+  @apply border-yellow-400 text-yellow-400;
+}
+
+.btn-yellow:hover {
+  @apply border-yellow-300 text-yellow-300;
+}
+
 .btn-red {
   @apply border-red-400 text-red-400;
 }

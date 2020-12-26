@@ -174,8 +174,23 @@
           @selected="onHeadSelected($event.key)"
         />
 
-        <button @click="collapseAll" class="btn btn-small btn-blue">
+        <button @click="collapseAll" class="btn btn-small btn-purple">
           Collapse All <font-awesome-icon icon="minus" class="ml-1" />
+        </button>
+      </div>
+
+      <!-- TODO(polish): I don't really like how this looks -->
+      <div
+        class="my-2 p-2 text-yellow-300 flex flex-row items-center rounded border border-dark-0 shadow dark-shadow bg-dark-3"
+        v-if="numVisibleCommits < numTotalCommits"
+      >
+        <font-awesome-icon fixed-width icon="history" class="mr-2" />
+        <span
+          >Viewing changes from {{ numVisibleCommits }} of
+          {{ numTotalCommits }} commits</span
+        >
+        <button @click="viewAllCommits" class="ml-2 btn btn-small btn-yellow">
+          View All
         </button>
       </div>
 
@@ -397,6 +412,14 @@ export default class PullRequest extends Mixins(EventEnhancer)
       c.collapse();
     }
     this.activeFileIndex = -1;
+  }
+
+  public viewAllCommits() {
+    // TODO(stop): Set the LabeledSelect back to default
+    this.reloadDiff(
+      this.assertPrData.pr.base.sha,
+      this.assertPrData.pr.head.sha
+    );
   }
 
   public async onBaseSelected(base: string) {
@@ -648,6 +671,14 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   get numUnresolvedThreads() {
     return this.reviewModule.numUnresolvedThreads;
+  }
+
+  get numTotalCommits() {
+    return this.assertPrData.commits.length + 1;
+  }
+
+  get numVisibleCommits() {
+    return this.reviewModule.viewState.visibleCommits.length;
   }
 
   // TODO(polish): Move this to a static utilitiy

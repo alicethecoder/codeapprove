@@ -152,6 +152,7 @@
 
         <!-- Select base commit -->
         <LabeledSelect
+          ref="baseSelect"
           class="mr-2"
           label="Base"
           :keys="[
@@ -167,6 +168,7 @@
 
         <!-- Select head commit -->
         <LabeledSelect
+          ref="headSelect"
           class="mr-2"
           label="Head"
           :keys="assertPrData.commits.map(c => c.sha).reverse()"
@@ -282,7 +284,7 @@ import {
   COMMENT_THREAD_KEY_DESC
 } from "../../plugins/hotkeys";
 
-import { ChangeEntryAPI, PullRequestAPI } from "../api";
+import { ChangeEntryAPI, PullRequestAPI, LabeledSelectAPI } from "../api";
 import { AddCommentEvent } from "../../plugins/events";
 import { makeTopVisible, makeBottomVisible } from "../../plugins/dom";
 import * as cookies from "../../plugins/cookies";
@@ -414,12 +416,15 @@ export default class PullRequest extends Mixins(EventEnhancer)
     this.activeFileIndex = -1;
   }
 
-  public viewAllCommits() {
+  public async viewAllCommits() {
     // TODO(stop): Set the LabeledSelect back to default
-    this.reloadDiff(
-      this.assertPrData.pr.base.sha,
-      this.assertPrData.pr.head.sha
-    );
+    const head = this.assertPrData.pr.head.sha;
+    const base = this.assertPrData.pr.base.sha;
+
+    await this.reloadDiff(base, head);
+
+    (this.$refs.baseSelect as LabeledSelectAPI).setSelected();
+    (this.$refs.headSelect as LabeledSelectAPI).setSelected();
   }
 
   public async onBaseSelected(base: string) {

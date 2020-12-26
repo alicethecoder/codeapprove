@@ -10,10 +10,20 @@ export interface LangPair extends SidePair<string> {}
 export interface ThreadPair extends SidePair<Thread | null> {}
 
 export function shouldDisplayThread(thread: Thread, args: ThreadArgs): boolean {
-  // TODO(stop): Consider originalArgs?
+  // TODO(stop): need a "strict" mode for currentArgs only
+  const keys: Array<keyof ThreadArgs> = ["file", "line", "side", "lineContent"];
   return (
-    args.file === thread.currentArgs.file &&
-    args.line === thread.currentArgs.line &&
-    args.side === thread.currentArgs.side
+    propsMatch(args, thread.currentArgs, keys) ||
+    propsMatch(args, thread.originalArgs, keys)
   );
+}
+
+export function propsMatch<T>(a: T, b: T, keys: Array<keyof T>): boolean {
+  for (const k of keys) {
+    if (a[k] !== b[k]) {
+      return false;
+    }
+  }
+
+  return true;
 }

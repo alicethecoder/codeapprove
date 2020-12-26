@@ -28,3 +28,7 @@ export type DiffLineAPI = Vue & {
 export type CommentThreadAPI = Vue & {
   addComment(resolve?: boolean): Promise<any>;
 };
+
+export type LabeledSelectAPI = Vue & {
+  setSelected(key?: string): void;
+};

@@ -64,6 +64,10 @@ export default class MarkdownContent extends Vue {
   @apply mb-3;
 }
 
+.md >>> p:last-of-type {
+  @apply mb-0;
+}
+
 .md >>> pre {
   @apply mb-3 p-2 bg-dark-4;
 }

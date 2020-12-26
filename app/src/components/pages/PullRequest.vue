@@ -79,8 +79,8 @@
         </div>
         <div class="description-content bg-dark-2">
           <MarkdownContent
-            class="px-4 pt-2 pb-4"
-            :content="assertPrData.pr.body"
+            class="px-4 py-4"
+            :content="description"
           />
         </div>
       </div>
@@ -543,6 +543,15 @@ export default class PullRequest extends Mixins(EventEnhancer)
     }
 
     return this.prData;
+  }
+
+  get description(): string {
+    const body = this.assertPrData.pr.body;
+    if (!body || body.trim() === "") {
+      return '_No description provided_';
+    }
+
+    return body;
   }
 
   get threads(): Thread[] {

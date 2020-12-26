@@ -384,16 +384,17 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
   }
 
   get allThreads() {
-    const l: Thread[] = this.reviewModule.threadsByFileAndSha(
-      this.meta.from,
-      this.reviewModule.viewState.base
-    );
-    const r: Thread[] = this.reviewModule.threadsByFileAndSha(
-      this.meta.to,
-      this.reviewModule.viewState.head
-    );
+    const left: Thread[] = this.reviewModule.threadsByFile(this.meta.from);
+    const right: Thread[] = this.reviewModule.threadsByFile(this.meta.to);
 
-    return [...l, ...r];
+    const all = [...left];
+    for (const thread of right) {
+      if (!all.find(x => thread.id === x.id)) {
+        all.push(thread);
+      }
+    }
+
+    return all;
   }
 
   get countUnresolvedThreads() {

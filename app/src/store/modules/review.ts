@@ -1,6 +1,6 @@
 import { Module, VuexModule, Mutation, Action } from "vuex-module-decorators";
 import * as uuid from "uuid";
-import { threadMatch } from "@/model/review";
+import { shouldDisplayThread } from "@/model/review";
 import {
   Comment,
   CommentUser,
@@ -29,12 +29,14 @@ import {
   commentsPath
 } from "../../../../shared/database";
 import { CountdownLatch } from "../../../../shared/asyncUtils";
+import { PullRequestData } from "../../../../shared/github";
 
 type Listener = () => void;
 
 interface ViewState {
   base: string;
   head: string;
+  commits: string[];
 }
 
 const SortByTimestamp = function(a: Comment, b: Comment) {
@@ -49,7 +51,8 @@ export default class ReviewModule extends VuexModule {
   public viewState: ViewState = {
     // What the user is viewing (not the actual base and head)
     base: "unknown",
-    head: "unknown"
+    head: "unknown",
+    commits: []
   };
 
   // Threads and comments which are attached to the review
@@ -151,29 +154,41 @@ export default class ReviewModule extends VuexModule {
   }
 
   get threadByArgs() {
-    return (args: ThreadArgs | null) => {
-      if (args === null) {
-        return null;
-      }
-      return this.threads.find(t => threadMatch(t, args)) || null;
-    };
-  }
+    return (args: ThreadArgs) => {
+      // Filter visible threads
+      const visibleShas = this.viewState.commits.slice(
+        this.viewState.commits.indexOf(this.viewState.base),
+        this.viewState.commits.indexOf(this.viewState.head) + 1
+      );
 
-  get threadsByFileAndSha() {
-    return (file: string, sha: string) => {
-      return this.threads.filter(
-        x => x.currentArgs.file === file && x.currentArgs.sha === sha
+      return (
+        this.threads
+          .filter(
+            t =>
+              visibleShas.includes(t.currentArgs.sha) ||
+              visibleShas.includes(t.originalArgs.sha)
+          )
+          .find(t => shouldDisplayThread(t, args)) || null
       );
     };
   }
 
+  get threadsByFile() {
+    return (file: string) => {
+      return this.threads.filter(x => x.currentArgs.file === file);
+    };
+  }
+
   @Action({ rawError: true })
-  public async initializeReview(opts: ReviewIdentifier) {
+  public async initializeReview(opts: {
+    id: ReviewIdentifier;
+    data: PullRequestData;
+  }) {
     this.context.commit("stopListening");
 
     const latch = new CountdownLatch(3);
 
-    const reviewUnsub = ReviewModule.reviewRef(opts).onSnapshot(
+    const reviewUnsub = ReviewModule.reviewRef(opts.id).onSnapshot(
       { includeMetadataChanges: true },
       snap => {
         console.log(
@@ -183,9 +198,14 @@ export default class ReviewModule extends VuexModule {
 
         if (review) {
           this.context.commit("setReviewMetadata", review.metadata);
+
+          const commits = opts.data.commits.map(c => c.sha);
+          commits.unshift(opts.data.pr.base.sha);
+
           this.context.commit("setViewState", {
             base: review.metadata.base.sha,
-            head: review.metadata.head.sha
+            head: review.metadata.head.sha,
+            commits
           });
 
           // For the review state we actually prefer our guesses
@@ -199,7 +219,7 @@ export default class ReviewModule extends VuexModule {
       }
     );
 
-    const threadsUnsub = ReviewModule.threadsRef(opts).onSnapshot(snap => {
+    const threadsUnsub = ReviewModule.threadsRef(opts.id).onSnapshot(snap => {
       console.log("threads#onSnapshot", snap.size);
       const threads = snap.docs.map(doc => doc.data());
       this.context.commit("setThreads", threads);
@@ -213,7 +233,7 @@ export default class ReviewModule extends VuexModule {
       latch.decrement();
     });
 
-    const commentsUnsub = ReviewModule.commentsRef(opts).onSnapshot(snap => {
+    const commentsUnsub = ReviewModule.commentsRef(opts.id).onSnapshot(snap => {
       console.log("comments#onSnapshot", snap.size);
       const comments = snap.docs.map(doc => doc.data() as Comment);
       this.context.commit("setComments", comments);

@@ -78,10 +78,7 @@
           <span>Description</span>
         </div>
         <div class="description-content bg-dark-2">
-          <MarkdownContent
-            class="px-4 py-4"
-            :content="description"
-          />
+          <MarkdownContent class="px-4 py-4" :content="description" />
         </div>
       </div>
 
@@ -155,7 +152,6 @@
 
         <!-- Select base commit -->
         <LabeledSelect
-          v-if="!isFromFork()"
           class="mr-2"
           label="Base"
           :keys="[
@@ -171,7 +167,6 @@
 
         <!-- Select head commit -->
         <LabeledSelect
-          v-if="!isFromFork()"
           class="mr-2"
           label="Head"
           :keys="assertPrData.commits.map(c => c.sha).reverse()"
@@ -320,6 +315,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
     // TODO(stop): What if the PR does not exist?
 
+    // TODO(polish): This should happen inside VueX
     // TODO(stop): prData.pr is mostly the same as the metadata in Firestore except:
     //  - body
     //  - head.ref, head.user.login
@@ -327,7 +323,10 @@ export default class PullRequest extends Mixins(EventEnhancer)
     this.prData = await this.github.getPullRequest(owner, repo, number);
 
     // TODO(stop): Call this again on base change?
-    await this.reviewModule.initializeReview({ owner, repo, number });
+    await this.reviewModule.initializeReview({
+      id: { owner, repo, number },
+      data: this.assertPrData
+    });
 
     // TODO(stop): Handle changes to PR (similar to GitHub "refresh" button)
     this.meta = Object.freeze(this.reviewModule.review.metadata);
@@ -408,23 +407,19 @@ export default class PullRequest extends Mixins(EventEnhancer)
     this.reloadDiff(this.reviewModule.viewState.base, head);
   }
 
-  public isFromFork() {
-    return (
-      this.assertPrData.pr.head.user.login !==
-      this.assertPrData.pr.base.user.login
-    );
-  }
-
-  // TODO(stop): This whole thing doesn't work for forks!
   public async reloadDiff(base: string, head: string) {
     this.uiModule.beginLoading();
     this.collapseAll();
 
+    const baseRef = `${this.assertPrData.pr.base.user.login}:${base}`;
+    const headRef = `${this.assertPrData.pr.head.user.login}:${head}`;
+
+    console.log(`reloadDiff(${baseRef}, ${headRef})`);
     const diffs = await this.github.getDiff(
       this.assertMeta.owner,
       this.assertMeta.repo,
-      base,
-      head
+      baseRef,
+      headRef
     );
 
     this.assertPrData.diffs = freezeArray(diffs);
@@ -548,7 +543,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
   get description(): string {
     const body = this.assertPrData.pr.body;
     if (!body || body.trim() === "") {
-      return '_No description provided_';
+      return "_No description provided_";
     }
 
     return body;

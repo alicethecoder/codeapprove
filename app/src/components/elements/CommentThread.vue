@@ -20,6 +20,12 @@
           <code>{{ thread.currentArgs.file }}</code>
           <span class="flex-grow"><!-- spacer --></span>
           <div
+            v-if="isOutdated(thread)"
+            class="text-sm rounded border border-yellow-400 px-1"
+          >
+            <code class="italic text-yellow-400">outdated</code>
+          </div>
+          <div
             v-if="resolved"
             class="text-sm rounded border border-gray-500 px-1"
           >
@@ -28,10 +34,15 @@
         </div>
         <div class="bg-dark-3">
           <prism
+            v-if="!isOutdated(thread)"
             class="code-preview hover:underline cursor-pointer"
             @click="goToLine()"
             >{{ thread.currentArgs.line }}
             {{ thread.currentArgs.lineContent }}</prism
+          >
+          <prism v-else class="code-preview"
+            >{{ thread.originalArgs.line }}
+            {{ thread.originalArgs.lineContent }}</prism
           >
         </div>
       </div>
@@ -179,6 +190,10 @@ export default class CommentThread extends Mixins(EventEnhancer)
 
   get hotKeyMap(): KeyMap {
     return COMMENT_THREAD_KEY_MAP(this);
+  }
+
+  public isOutdated(thread: Thread) {
+    return thread.currentArgs.line < 0;
   }
 
   private loadComments() {

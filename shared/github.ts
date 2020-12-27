@@ -9,7 +9,7 @@ import parseDiff from "parse-diff";
 
 import * as octocache from "./octocache";
 import { freezeArray } from "./freeze";
-import { GithubConfig } from "./types";
+import { GithubConfig, ThreadArgs, Side } from "./types";
 
 const PREVIEWS = ["machine-man-preview"];
 
@@ -63,11 +63,6 @@ export interface AuthDelegate {
   getExpiry(): number;
   getToken(): string;
   refreshAuth(): Promise<any>;
-}
-
-export interface LineTranslation {
-  file: string;
-  line: number;
 }
 
 export class Github {
@@ -232,155 +227,37 @@ export class Github {
     return parseDiff(data);
   }
 
-  /**
-   * Translate a line between two commits, used as more commits are pushed
-   * onto the HEAD of the review.
-   *
-   * @param owner repo owner.
-   * @param repo repo name.
-   * @param oldHead the original commit (where you know the line number).
-   * @param newHead the new commit (where you don't know the line number).
-   * @param file the file name (in the original commit).
-   * @param line the line number (in the original commit).
-   */
-  async translateLineNumberHeadMove(
-    owner: string,
-    repo: string,
-    oldHead: string,
-    newHead: string,
-    file: string,
-    line: number
-  ): Promise<LineTranslation> {
-    // Diff the two commits against each other to determine what changed
-    const diff = await this.getDiff(owner, repo, oldHead, newHead);
+  // TODO(stop): Move this to a util
+  collectLineChanges(
+    fileDiff: parseDiff.File,
+    line: number,
+    side: Side
+  ): parseDiff.Change[] {
+    const changes = [];
 
-    // Find the file in the 'from' list
-    const fileDiff = diff.find((f) => f.from === file);
-    if (!fileDiff) {
-      console.log(`File ${file} is not in the 'from' list`);
-      return { file, line: -1 };
-    }
-
-    const newFileName = fileDiff.to || fileDiff.from || file;
-
-    // Calculate of how many lines are added/deleted (net) above the line
-    const nudge = this.calculateLineNudge(fileDiff, line);
-    const newLineNumber = line + nudge;
-
-    // Determine if the content changed, if so it is outdated
-    let hasAdd = false;
-    let hasDel = true;
     for (const chunk of fileDiff.chunks) {
       for (const change of chunk.changes) {
         if (change.type === "add" && change.ln === line) {
-          hasAdd = true;
+          changes.push(change);
         }
 
         if (change.type === "del" && change.ln === line) {
-          hasDel = true;
+          changes.push(change);
+        }
+
+        if (change.type === "normal") {
+          if (change.ln1 === line && side === "left") {
+            changes.push(change);
+          }
+
+          if (change.ln2 === line && side === "right") {
+            changes.push(change);
+          }
         }
       }
     }
 
-    if (hasDel && !hasAdd) {
-      console.log(
-        `Detected line deletion in file ${file} on line ${line} (nudge was ${nudge})`
-      );
-      return { file, line: -1 };
-    }
-
-    if (hasDel && hasAdd) {
-      console.log(`Detected del/add pair in file ${file} on line ${line}`);
-      return { file, line: -1 };
-    }
-
-    // TODO(stop): Is hasAdd without hasDel possible/meaningful?
-
-    return {
-      file: newFileName,
-      line: newLineNumber,
-    };
-  }
-
-  /**
-   * Translate a line from a review as the BASE of the review changes.
-   *
-   * @param owner the repo owner.
-   * @param repo the repo name.
-   * @param oldBase the previously known base commit.
-   * @param newBase the current base commit.
-   * @param file the file name.
-   * @param line the line number (as currently known in head).
-   */
-  async translateLineNumberBaseMove(
-    owner: string,
-    repo: string,
-    oldBase: string,
-    newBase: string,
-    file: string,
-    line: number
-  ) {
-    // TODO(polish): This is extremely similar to the other method, DRY?
-
-    // Diff the two commits against each other to determine what changed
-    const diff = await this.getDiff(owner, repo, oldBase, newBase);
-
-    // Find the file in the 'to' list
-    const fileDiff = diff.find((f) => f.to === file);
-    if (!fileDiff) {
-      return { file, line: -1 };
-    }
-
-    // Calculate of how many lines are added/deleted (net) above the line
-    const nudge = this.calculateLineNudge(fileDiff, line);
-    return {
-      file,
-      line: line + nudge,
-    };
-  }
-
-  /**
-   * Determine how far a line has moved within a diff by counting lines above it
-   * that have been added or deleted.
-   */
-  calculateLineNudge(fileDiff: parseDiff.File, line: number): number {
-    // If the line in question is before the start of the diff, number is unchanged
-    const firstLine = fileDiff.chunks[0].oldStart;
-    if (line < firstLine) {
-      return 0;
-    }
-
-    // Keep track of how many lines are added/deleted (net) above the line
-    let nudge = 0;
-
-    for (const chunk of fileDiff.chunks) {
-      for (const change of chunk.changes) {
-        // Loop until one of:
-        // a) We find a normal block that's an exact match
-        // b) We find a normal block that's after the line in question,
-        //    letting us know that we passed it and we can apply the nudge
-        switch (change.type) {
-          case "normal":
-            if (change.ln1 === line) {
-              // The diff tells us the exact new line number, so the nudge is the
-              // difference.
-              return change.ln2 - change.ln1;
-            } else if (change.ln1 > line) {
-              return nudge;
-            }
-            break;
-          case "add":
-            nudge += 1;
-            break;
-          case "del":
-            nudge -= 1;
-            break;
-        }
-      }
-    }
-
-    // At this point the line is "off the end" of the diff so the nudge won't change
-    return nudge;
+    return changes;
   }
 
   async getContentLine(

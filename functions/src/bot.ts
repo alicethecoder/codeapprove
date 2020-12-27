@@ -1,8 +1,12 @@
 import * as admin from "firebase-admin";
+import * as parseDiff from "parse-diff";
 
 import * as log from "./logger";
 import * as githubAuth from "./githubAuth";
 import { docRef, collectionRef } from "./databaseUtil";
+
+import * as diffUtils from "../../shared/diffUtils";
+import { Github } from "../../shared/github";
 
 import {
   orgPath,
@@ -21,6 +25,8 @@ import {
   ReviewMetadataSource,
   Org,
   Repo,
+  ReviewMetadata,
+  Side,
 } from "../../shared/types";
 import { ApplicationFunctionOptions } from "probot/lib/types";
 import { calculateReviewStatus } from "../../shared/typeUtils";
@@ -296,17 +302,25 @@ export async function updatePullRequest(
     throw new Error(`No such review: ${reviewRef.path}`);
   }
 
-  review.metadata.title = pr.title;
-  review.metadata.base = {
+  const oldMetadata: ReviewMetadata = {
+    ...review.metadata,
+  };
+
+  const newMetadata: ReviewMetadata = {
+    ...review.metadata,
+  };
+
+  newMetadata.title = pr.title;
+  newMetadata.base = {
     sha: pr.base.sha,
     label: pr.base.label,
   };
-  review.metadata.head = {
+  newMetadata.head = {
     sha: pr.head.sha,
     label: pr.head.label,
   };
-  review.metadata.updated_at = Date.parse(pr.updated_at);
-  await reviewRef.update("metadata", review.metadata);
+  newMetadata.updated_at = Date.parse(pr.updated_at);
+  await reviewRef.update("metadata", newMetadata);
 
   // Load and update all threads
   const threadsRef = collectionRef<Thread>(
@@ -316,62 +330,170 @@ export async function updatePullRequest(
   const threadsSnap = await threadsRef.get();
 
   // TODO(stop): What if there was a force push?
-  const headSha = pr.head.sha;
-  const baseSha = pr.base.sha;
+  if (opts.force) {
+    log.info("opts.force=true, updating all threads");
+  }
 
   for (const doc of threadsSnap.docs) {
     const thread = doc.data();
+    const newArgs = await updateThread(
+      gh,
+      thread,
+      oldMetadata,
+      newMetadata,
+      opts
+    );
 
-    // TODO(stop): What if the base branch changes?
-    const baseChanged = thread.originalArgs.sha !== baseSha;
-    const headChanged = thread.currentArgs.sha !== headSha;
-
-    if (opts.force) {
-      console.log("opts.force=true, updating all threads");
-    }
-
-    if (headChanged || opts.force) {
-      log.info(
-        `Updating thread ${thread.id} due to HEAD change ${thread.currentArgs.sha} --> ${headSha}`
-      );
-      const newLine = await gh.translateLineNumberHeadMove(
-        owner,
-        repo,
-        thread.originalArgs.sha,
-        headSha,
-        thread.originalArgs.file,
-        thread.originalArgs.line
-      );
-
-      // TODO(stop): What if newLine === -1? Mark as outdated?
-      const newLineContent =
-        newLine.line === -1
-          ? ""
-          : await gh.getContentLine(
-              owner,
-              repo,
-              newLine.file,
-              headSha,
-              newLine.line
-            );
-
-      const newArgs: ThreadArgs = {
-        sha: headSha,
-        line: newLine.line,
-        side: thread.currentArgs.side,
-        lineContent: newLineContent,
-        file: newLine.file,
-      };
-
-      log.info("Updating thread", {
+    if (newArgs !== thread.currentArgs) {
+      log.info("Updating thread.currentArgs", {
         current: thread.currentArgs,
         new: newArgs,
       });
       await doc.ref.update("currentArgs", newArgs);
-    } else {
-      log.info(
-        `Thread ${doc.ref.id} is up to date at ${thread.currentArgs.sha}`
-      );
     }
   }
+}
+
+export async function updateThread(
+  gh: Github,
+  thread: Thread,
+  oldMetadata: ReviewMetadata,
+  newMetadata: ReviewMetadata,
+  opts: { force?: boolean } = {}
+): Promise<ThreadArgs> {
+  const threadSide = thread.currentArgs.side;
+  const relevantSha =
+    threadSide === "right" ? newMetadata.head.sha : newMetadata.base.sha;
+
+  const updatedArgs: ThreadArgs = {
+    ...thread.currentArgs,
+    sha: relevantSha,
+  };
+
+  const outdatedArgs: ThreadArgs = {
+    ...updatedArgs,
+    line: -1,
+    lineContent: "",
+  };
+
+  // Outdated threads are just carried along to the next SHA.
+  if (thread.currentArgs.line === -1) {
+    log.info(`Not updating outdated thred ${thread.id}`);
+    return updatedArgs;
+  }
+
+  // Determine if there is any material change for this thread.
+  const baseChanged = oldMetadata.base.sha !== newMetadata.base.sha;
+  const headChanged = oldMetadata.head.sha !== newMetadata.head.sha;
+  const threadOutdated = thread.currentArgs.sha !== relevantSha;
+
+  const shouldProcess =
+    headChanged || baseChanged || threadOutdated || opts.force;
+  if (!shouldProcess) {
+    log.info(`No need to process thread ${thread.id}, everything up to date.`);
+    return updatedArgs;
+  }
+
+  // General algorithm:
+  // 1 - Diff the whole PR (base to head) and then see if there are any disqualifying changes.
+  // 2a - For right side changes drag along to the new HEAD (if changed)
+  // 2b - For left side changes drag along to the new BASE (if changed)
+
+  const wholeDiff = await gh.getDiff(
+    newMetadata.owner,
+    newMetadata.repo,
+    newMetadata.base.sha,
+    newMetadata.head.sha
+  );
+
+  // TODO(polish): Can DRY up step 1 into a single more generic block
+
+  // 1 - See above
+  if (threadSide === "right") {
+    const wholeFileDiff = wholeDiff.find(
+      (fd) => fd.to === thread.currentArgs.file
+    );
+    if (wholeFileDiff) {
+      const changes = diffUtils.collectLineChanges(
+        wholeFileDiff,
+        thread.currentArgs.line,
+        "right"
+      );
+      const addOrNormal = changes.find(
+        (change) => change.type === "add" || change.type === "normal"
+      );
+
+      // This right side change no longer makes sense because there's no added line on the right side
+      // with the same number
+      if (!addOrNormal) {
+        return outdatedArgs;
+      }
+    }
+  }
+
+  // 1 - See above
+  if (threadSide === "left") {
+    const wholeFileDiff = wholeDiff.find(
+      (fd) => fd.from === thread.currentArgs.file
+    );
+    if (wholeFileDiff) {
+      const changes = diffUtils.collectLineChanges(
+        wholeFileDiff,
+        thread.currentArgs.line,
+        "left"
+      );
+      const del = changes.find((change) => change.type === "del");
+
+      // This left side change no longer makes sense because there's no deleted line
+      // on the left side with the same number
+      if (!del) {
+        return outdatedArgs;
+      }
+    }
+  }
+
+  // 2a/2b - See above
+  if (threadOutdated) {
+    log.info(
+      `Updating ${threadSide} side thread ${thread.id} due to SHA change --> ${relevantSha}`
+    );
+
+    // Diff between the thread's current SHA and the new SHA.
+    const intermediateDiff = await gh.getDiff(
+      newMetadata.owner,
+      newMetadata.repo,
+      thread.currentArgs.sha,
+      relevantSha
+    );
+
+    // The thread becomes outdated if the intermediate diff contains any "del"
+    // change that matches the line.
+    const intermediateFileDiff = intermediateDiff.find(
+      (fd) => fd.from === thread.currentArgs.file
+    );
+    if (intermediateFileDiff) {
+      const changes = diffUtils.collectLineChanges(
+        intermediateFileDiff,
+        thread.currentArgs.line,
+        threadSide
+      );
+      const hasDel = changes.some((c) => c.type === "del");
+      if (hasDel) {
+        return outdatedArgs;
+      }
+    }
+
+    // The line content is not outdated, so we should just nudge it along.
+    const translation = diffUtils.translateLineNumber(
+      intermediateDiff,
+      thread.currentArgs
+    );
+    if (translation) {
+      updatedArgs.file = translation.file;
+      updatedArgs.line = updatedArgs.line + translation.line;
+      return updatedArgs;
+    }
+  }
+
+  return thread.currentArgs;
 }

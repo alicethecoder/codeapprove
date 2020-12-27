@@ -126,6 +126,8 @@ export const onThreadWrite = functions.firestore
       console.log(`Ignoring draft thread ${after.id}`);
     }
 
+    // TODO(stop): If side=left and base is not latest or side=right and head is not latest, run updateThread
+
     if (before?.resolved !== after.resolved) {
       // Bump the Review unresolved count up/down
       const diff = after.resolved ? -1 : 1;

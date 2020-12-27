@@ -183,7 +183,7 @@
 
       <!-- TODO(polish): I don't really like how this looks -->
       <div
-        class="my-2 p-2 text-yellow-300 flex flex-row items-center rounded border border-dark-0 shadow dark-shadow bg-dark-3"
+        class="my-2 p-2 text-yellow-400 flex flex-row items-center rounded border border-dark-0 shadow dark-shadow bg-dark-3"
         v-if="numVisibleCommits < numTotalCommits"
       >
         <font-awesome-icon fixed-width icon="history" class="mr-2" />

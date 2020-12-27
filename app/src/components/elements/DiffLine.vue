@@ -203,6 +203,11 @@ export default class DiffLine extends Mixins(EventEnhancer)
       return false;
     }
 
+    // For 'normal' lines the comment must always be left on the right side.
+    if (side === "left" && this.rendered.left.type === "normal") {
+      return false;
+    }
+
     return (
       !this.rendered[side].empty &&
       this.hovered[side] &&

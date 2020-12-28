@@ -200,6 +200,28 @@ export class Github {
     };
   }
 
+  async compareCommits(
+    owner: string,
+    repo: string,
+    base: string,
+    head: string
+  ) {
+    await this.assertAuth();
+
+    const res = await octocache.call(
+      "repos.compareCommits",
+      this.octokit.repos.compareCommits,
+      {
+        owner,
+        repo,
+        base,
+        head,
+      }
+    );
+
+    return res;
+  }
+
   async getDiff(
     owner: string,
     repo: string,

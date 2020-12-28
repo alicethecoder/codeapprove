@@ -344,13 +344,11 @@ export async function updatePullRequest(
       opts
     );
 
-    if (newArgs !== thread.currentArgs) {
-      log.info("Updating thread.currentArgs", {
-        current: thread.currentArgs,
-        new: newArgs,
-      });
-      await doc.ref.update("currentArgs", newArgs);
-    }
+    log.info(`Updating thread.currentArgs for thread ${thread.id}`, {
+      current: thread.currentArgs,
+      new: newArgs,
+    });
+    await doc.ref.update("currentArgs", newArgs);
   }
 }
 
@@ -378,7 +376,7 @@ export async function updateThread(
 
   // Outdated threads are just carried along to the next SHA.
   if (thread.currentArgs.line === -1) {
-    log.info(`Not updating outdated thred ${thread.id}`);
+    log.info(`Not updating outdated thread ${thread.id}`);
     return updatedArgs;
   }
 
@@ -398,6 +396,9 @@ export async function updateThread(
   // 1 - Diff the whole PR (base to head) and then see if there are any disqualifying changes.
   // 2a - For right side changes drag along to the new HEAD (if changed)
   // 2b - For left side changes drag along to the new BASE (if changed)
+
+  // TODO(stop): All of these getDiff() calls should use the owner:sha form instead of just
+  //             sha in order to work better for forks.
 
   const wholeDiff = await gh.getDiff(
     newMetadata.owner,
@@ -426,6 +427,9 @@ export async function updateThread(
       // This right side change no longer makes sense because there's no added line on the right side
       // with the same number
       if (!addOrNormal) {
+        log.info(
+          `${thread.id} on ${threadSide} thread outdated by lack of matching "add" or "normal"`
+        );
         return outdatedArgs;
       }
     }
@@ -447,6 +451,9 @@ export async function updateThread(
       // This left side change no longer makes sense because there's no deleted line
       // on the left side with the same number
       if (!del) {
+        log.info(
+          `${thread.id} on ${threadSide} thread outdated by lack of matching "del"`
+        );
         return outdatedArgs;
       }
     }
@@ -458,18 +465,39 @@ export async function updateThread(
       `Updating ${threadSide} side thread ${thread.id} due to SHA change --> ${relevantSha}`
     );
 
+    // First figure out if the thread is ahead or behind
+    let reversedDiff = false;
+    let before = thread.currentArgs.sha;
+    let after = relevantSha;
+    const comparison = await gh.compareCommits(
+      newMetadata.owner,
+      newMetadata.repo,
+      before,
+      after
+    );
+
+    // We need to reverse the diff because the new commit is actually *before* the old one.
+    // This can happen for left-side comments which are left on a later base.
+    if (comparison.status === "behind") {
+      log.info(
+        `Reversing ${threadSide} diff because ${after} is ${comparison.behind_by} commits behind ${before}`
+      );
+      reversedDiff = true;
+      before = relevantSha;
+      after = thread.currentArgs.sha;
+    }
+
     // Diff between the thread's current SHA and the new SHA.
     const intermediateDiff = await gh.getDiff(
       newMetadata.owner,
       newMetadata.repo,
-      thread.currentArgs.sha,
-      relevantSha
+      before,
+      after
     );
 
-    // The thread becomes outdated if the intermediate diff contains any "del"
-    // change that matches the line.
+    const fileSide = reversedDiff ? "to" : "from";
     const intermediateFileDiff = intermediateDiff.find(
-      (fd) => fd.from === thread.currentArgs.file
+      (fd) => fd[fileSide] === thread.currentArgs.file
     );
     if (intermediateFileDiff) {
       const changes = diffUtils.collectLineChanges(
@@ -477,8 +505,20 @@ export async function updateThread(
         thread.currentArgs.line,
         threadSide
       );
-      const hasDel = changes.some((c) => c.type === "del");
-      if (hasDel) {
+
+      // Here we look for changes that would make the thread outdated. For a normal head move this
+      // is any "del" change. For a reverse move (where the thread is *newer* than the target SHA)
+      // then we are looking for an "add" change.
+      const changeType = reversedDiff ? "add" : "del";
+      const outdatingChange = changes.find((c) => c.type === changeType);
+      if (outdatingChange) {
+        log.info(
+          `${
+            thread.id
+          } on ${threadSide} thread outdated by change ${JSON.stringify(
+            outdatingChange
+          )}`
+        );
         return outdatedArgs;
       }
     }

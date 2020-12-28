@@ -10,8 +10,16 @@
     "public": "app/dist",
     "rewrites": [
       {
-        "source": "/oauth",
+        "source": "/api/oauth",
         "function": "oauth"
+      },
+      {
+        "source": "/api/getGithubToken",
+        "function": "getGithubToken"
+      },
+      {
+        "source": "/api/githubWebhook",
+        "function": "githubWebhook"
       },
       {
         "source": "**",

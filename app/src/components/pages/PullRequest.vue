@@ -6,19 +6,19 @@
     <!-- Title of PR, branches, etc -->
     <div class="mb-4 flex flex-row items-center">
       <div>
-        <h3 class="font-bold text-xl">
-          {{ meta.owner }}/{{ meta.repo }} (<a
+        <h2 class="font-bold text-xl">
+          {{ assertMeta.owner }}/{{ assertMeta.repo }} (<a
             class="text-purple-300 hover:underline"
             :href="
-              `https://github.com/${meta.owner}/${meta.repo}/pull/${meta.number}`
+              `https://github.com/${assertMeta.owner}/${assertMeta.repo}/pull/${assertMeta.number}`
             "
             target="_blank"
-            >#{{ meta.number }}</a
+            >#{{ assertMeta.number }}</a
           >)
-        </h3>
+        </h2>
         <p>
-          merge <code>{{ prData.pr.head.ref }}</code> into
-          <code>{{ prData.pr.base.ref }}</code>
+          merge <code>{{ assertMeta.head.label }}</code> into
+          <code>{{ assertMeta.base.label }}</code>
         </p>
       </div>
 
@@ -53,9 +53,9 @@
         {{ drafts.length }} draft comments</span
       >
       <span class="flex-grow"><!-- spacer --></span>
-      <!-- TODO: Discard is unimplemented -->
-      <button class="btn btn-red ml-2">Discard</button>
-      <!-- TODO: This should not unset approval if already approved -->
+      <button class="btn btn-red ml-2" @click.prevent="discardDrafts()">
+        Discard
+      </button>
       <button class="btn btn-blue ml-2" @click.prevent="sendDrafts(false)">
         Send
       </button>
@@ -71,13 +71,14 @@
         class="col-span-8 dark-shadow rounded border border-dark-0 overflow-hidden"
       >
         <div
-          class="flex items-center px-4 py-1 bg-dark-3 font-bold border-b border-dark-0"
+          :class="[statusClass.text, statusClass.border]"
+          class="flex items-center px-4 py-1 bg-dark-3 font-bold border-b"
         >
-          <font-awesome-icon icon="user-edit" class="mr-2" />
+          <font-awesome-icon icon="bookmark" class="mr-2" />
           <span>Description</span>
         </div>
         <div class="description-content bg-dark-2">
-          <MarkdownContent class="px-4 pt-2 pb-4" :content="prData.pr.body" />
+          <MarkdownContent class="px-4 py-4" :content="description" />
         </div>
       </div>
 
@@ -86,13 +87,10 @@
         class="col-span-4 dark-shadow inline-block border-dark-0 overflow-hidden rounded border"
       >
         <div
-          :class="isApproved ? 'text-green-400' : 'text-yellow-400'"
-          class="flex items-center px-4 py-1 bg-dark-3 font-bold border-dark-0 border-b"
+          :class="[statusClass.text, statusClass.border]"
+          class="flex items-center px-4 py-1 bg-dark-3 font-bold border-b"
         >
-          <font-awesome-icon
-            :icon="isApproved ? 'check' : 'pause-circle'"
-            class="mr-2"
-          />
+          <font-awesome-icon :icon="statusIconName" class="mr-2" />
           <span>Status: {{ statusText }}</span>
         </div>
         <div class="bg-dark-2 p-4">
@@ -115,6 +113,7 @@
                     />
                   </p>
                   <a
+                    v-if="canAddReviewer()"
                     class="text-blue-600 hover:underline cursor-pointer pr-1"
                     @click.stop="usersearching = true"
                     >(add)</a
@@ -124,8 +123,8 @@
                   class="absolute"
                   v-if="usersearching"
                   v-click-outside="() => (usersearching = false)"
-                  :owner="meta.owner"
-                  :repo="meta.repo"
+                  :owner="assertMeta.owner"
+                  :repo="assertMeta.repo"
                   @selected="onReviewerSelected"
                 />
               </td>
@@ -148,40 +147,60 @@
     <!-- Changes -->
     <div class="mt-12">
       <div class="flex flex-row items-center">
-        <span class="font-bold text-lg">Changes</span>
+        <h2 class="font-bold text-xl">Changes</h2>
         <span class="flex-grow"><!-- spacer --></span>
 
         <!-- Select base commit -->
         <LabeledSelect
+          ref="baseSelect"
           class="mr-2"
           label="Base"
-          :keys="[prData.pr.base.ref, ...prData.commits.map(c => c.sha)]"
+          :keys="[
+            assertPrData.pr.base.ref,
+            ...assertPrData.commits.map(c => c.sha)
+          ]"
           :values="[
-            prData.pr.base.ref,
-            ...prData.commits.map(c => displayCommit(c))
+            assertPrData.pr.base.ref,
+            ...assertPrData.commits.map(c => displayCommit(c))
           ]"
           @selected="onBaseSelected($event.key)"
         />
 
         <!-- Select head commit -->
         <LabeledSelect
+          ref="headSelect"
           class="mr-2"
           label="Head"
-          :keys="prData.commits.map(c => c.sha).reverse()"
-          :values="prData.commits.map(c => displayCommit(c)).reverse()"
+          :keys="assertPrData.commits.map(c => c.sha).reverse()"
+          :values="assertPrData.commits.map(c => displayCommit(c)).reverse()"
           @selected="onHeadSelected($event.key)"
         />
 
-        <button @click="collapseAll" class="btn btn-small btn-blue">
+        <button @click="collapseAll" class="btn btn-small btn-purple">
           Collapse All <font-awesome-icon icon="minus" class="ml-1" />
         </button>
       </div>
 
+      <!-- TODO(polish): I don't really like how this looks -->
+      <div
+        class="my-2 p-2 text-yellow-400 flex flex-row items-center rounded border border-dark-0 shadow dark-shadow bg-dark-3"
+        v-if="numVisibleCommits < numTotalCommits"
+      >
+        <font-awesome-icon fixed-width icon="history" class="mr-2" />
+        <span
+          >Viewing changes from {{ numVisibleCommits }} of
+          {{ numTotalCommits }} commits</span
+        >
+        <button @click="viewAllCommits" class="ml-2 btn btn-small btn-yellow">
+          View All
+        </button>
+      </div>
+
       <ChangeEntry
-        v-for="(change, i) in prChanges.changes"
+        v-for="(change, i) in prChanges || []"
         ref="changes"
         @click.native="setActiveChangeEntry(i)"
-        :key="`change-${change.file.from}-${change.file.to}`"
+        :key="changeEntryKey(change)"
         :meta="change.metadata"
         :chunks="change.data"
       />
@@ -190,11 +209,11 @@
     <!-- Comments -->
     <div class="mt-12">
       <div class="flex flex-row items-center mb-2">
-        <span class="font-bold text-lg mr-2">Comments</span>
+        <h2 class="font-bold text-xl mr-2">Comments</h2>
         <LabeledSelect
           :label="'Filter'"
-          :keys="['all', 'resolved', 'unresolved']"
-          :values="['all', 'resolved', 'unresolved']"
+          :keys="['unresolved', 'resolved', 'all']"
+          :values="['unresolved', 'resolved', 'all']"
           @selected="threadFilter = $event.key"
         />
       </div>
@@ -208,9 +227,8 @@
         :key="thread.id"
         class="w-1/2 mb-2"
         :mode="'standalone'"
-        :side="thread.side"
-        :line="thread.line"
-        :content="thread.lineContent"
+        :line="thread.currentArgs.line"
+        :sha="thread.currentArgs.sha"
         :threadId="thread.id"
         @goto="goToThread(thread)"
       />
@@ -234,8 +252,8 @@ import HotkeyModal from "@/components/elements/HotkeyModal.vue";
 import LabeledSelect from "@/components/elements/LabeledSelect.vue";
 import UserReviewIcon from "@/components/elements/UserReviewIcon.vue";
 
-import { Github, PullRequestData } from "../../plugins/github";
-import { freezeArray } from "../../plugins/freeze";
+import { freezeArray } from "../../../../shared/freeze";
+import { Github, PullRequestData } from "../../../../shared/github";
 import ReviewModule from "../../store/modules/review";
 import UIModule from "../../store/modules/ui";
 import {
@@ -243,16 +261,18 @@ import {
   renderPairs,
   zipChangePairs,
   ChunkData,
-  PullRequestChanges,
   FileMetadata,
-  RenderedChangePair
+  RenderedChangePair,
+  PullRequestChange
 } from "../../plugins/diff";
 import {
   Thread,
   Comment,
   ReviewMetadata,
-  CommentUser
-} from "../../model/review";
+  CommentUser,
+  ReviewStatus
+} from "../../../../shared/types";
+import * as typeUtils from "../../../../shared/typeUtils";
 import AuthModule from "../../store/modules/auth";
 import {
   KeyMap,
@@ -264,10 +284,11 @@ import {
   COMMENT_THREAD_KEY_DESC
 } from "../../plugins/hotkeys";
 
-import { ChangeEntryAPI, PullRequestAPI } from "../api";
+import { ChangeEntryAPI, PullRequestAPI, LabeledSelectAPI } from "../api";
 import { AddCommentEvent } from "../../plugins/events";
 import { makeTopVisible, makeBottomVisible } from "../../plugins/dom";
-import { resolve } from "dns";
+import * as cookies from "../../plugins/cookies";
+import { config } from "../../plugins/config";
 
 @Component({
   components: {
@@ -288,58 +309,64 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   private github!: Github;
 
-  // TODO: Put these in a "UI" object
   public usersearching = false;
   public loading = true;
 
-  // TODO: These should be one state object
+  public meta: ReviewMetadata | null = null;
   public prData: PullRequestData | null = null;
-  public prChanges: PullRequestChanges | null = null;
-  public meta!: ReviewMetadata;
-
-  // Diff start/end
-  public diffBase: string | null = null;
-  public diffHead: string | null = null;
+  public prChanges: PullRequestChange[] | null = null;
 
   public activeFileIndex = -1;
-  public threadFilter = "all";
+  public threadFilter = "unresolved";
 
   async mounted() {
-    this.github = new Github(this.authModule);
+    this.github = new Github(
+      AuthModule.getDelegate(this.authModule),
+      config.github
+    );
     this.uiModule.beginLoading();
 
-    // TODO: Need to watch for route changes
-    // https://router.vuejs.org/guide/essentials/dynamic-matching.html#reacting-to-params-changes
     const params = this.$route.params;
+    const { owner, repo } = params;
+    const number = Number.parseInt(params.number);
 
-    this.meta = {
-      owner: params.owner,
-      repo: params.repo,
-      number: Number.parseInt(params.number)
-    };
+    // TODO(polish): This should happen inside VueX
+    // TODO(stop): prData.pr is mostly the same as the metadata in Firestore except:
+    //  - body
+    //  - head.ref, head.user.login
+    //  - base.ref, base.user.login
+    try {
+      this.prData = await this.github.getPullRequest(owner, repo, number);
+    } catch (e) {
+      // TODO(stop): This also happens when the branch is deleted
+      console.warn(e);
+      this.$router.push("/404");
+      return;
+    }
 
-    // TODO: Call this again on base change?
-    this.reviewModule.initializeReview(this.meta);
-    this.prData = await this.github.getPullRequest(
-      this.meta.owner,
-      this.meta.repo,
-      this.meta.number
-    );
-
-    this.reviewModule.setBaseAndHead({
-      base: this.baseSha(),
-      head: this.headSha()
+    await this.reviewModule.initializeReview({
+      id: { owner, repo, number },
+      data: this.assertPrData
     });
 
+    if (!this.reviewModule.reviewLoaded) {
+      console.warn(`Unable to load review ${owner}/${repo}/${number}`);
+      this.$router.push("/404");
+    }
+
+    // TODO(stop): Handle changes to PR (similar to GitHub "refresh" button)
+    this.meta = Object.freeze(this.reviewModule.review.metadata);
     this.prChanges = this.renderPullRequest(this.prData);
 
     this.uiModule.endLoading();
 
-    // TODO: Remove this once they do it
-    this.uiModule.addMessage({
-      type: "alert",
-      text: "Pro tip: press 'Alt + /' to see keyboard shortcuts"
-    });
+    const hasShown = this.$cookies.get(cookies.HOTKEY_MODAL_SHOWN) === "true";
+    if (!hasShown) {
+      this.uiModule.addMessage({
+        type: "alert",
+        text: "Pro tip: press 'Alt + /' to see keyboard shortcuts"
+      });
+    }
   }
 
   public setMyApproval(approved: boolean) {
@@ -351,7 +378,6 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   public handleEvent(e: Partial<AddCommentEvent>) {
     console.log("PullRequest#handleEvent");
-    e.sha = e.side === "left" ? this.baseSha() : this.headSha();
 
     const finalEvent = e as AddCommentEvent;
     const user: CommentUser = {
@@ -362,9 +388,27 @@ export default class PullRequest extends Mixins(EventEnhancer)
     this.reviewModule.handleAddCommentEvent({ e: finalEvent, user });
   }
 
+  public async discardDrafts() {
+    await this.reviewModule.discardDraftComments({
+      username: this.authModule.assertUser.username
+    });
+  }
+
   public async sendDrafts(approve: boolean) {
-    this.setMyApproval(approve);
-    await this.reviewModule.sendDraftComments({ approve });
+    const me = this.authModule.assertUser.username;
+    const isReviewer = this.reviewModule.review.state.reviewers.includes(me);
+
+    if (isReviewer && approve) {
+      // Moving from pending to approved
+      this.setMyApproval(true);
+    } else if (!isReviewer) {
+      // Moving from not-reviewed to pending
+      this.setMyApproval(false);
+    }
+
+    await this.reviewModule.sendDraftComments({
+      username: this.authModule.assertUser.username
+    });
   }
 
   public onReviewerSelected(event: { login: string }) {
@@ -381,39 +425,46 @@ export default class PullRequest extends Mixins(EventEnhancer)
     this.activeFileIndex = -1;
   }
 
-  // TODO: The head/base state should probably be in the Vuex module
+  public async viewAllCommits() {
+    // TODO(stop): Set the LabeledSelect back to default
+    const head = this.assertPrData.pr.head.sha;
+    const base = this.assertPrData.pr.base.sha;
+
+    await this.reloadDiff(base, head);
+
+    (this.$refs.baseSelect as LabeledSelectAPI).setSelected();
+    (this.$refs.headSelect as LabeledSelectAPI).setSelected();
+  }
+
   public async onBaseSelected(base: string) {
-    this.diffBase = base;
-    this.reloadDiff();
+    this.reloadDiff(base, this.reviewModule.viewState.head);
   }
 
   public async onHeadSelected(head: string) {
-    this.diffHead = head;
-    this.reloadDiff();
+    this.reloadDiff(this.reviewModule.viewState.base, head);
   }
 
-  public headSha() {
-    return this.diffHead || this.prData!.pr.head.ref;
-  }
-
-  public baseSha() {
-    return this.diffBase || this.prData!.pr.base.ref;
-  }
-
-  public async reloadDiff() {
+  public async reloadDiff(base: string, head: string) {
     this.uiModule.beginLoading();
     this.collapseAll();
 
+    const baseRef = `${this.assertPrData.pr.base.user.login}:${base}`;
+    const headRef = `${this.assertPrData.pr.head.user.login}:${head}`;
+
+    console.log(`reloadDiff(${baseRef}, ${headRef})`);
     const diffs = await this.github.getDiff(
-      this.meta.owner,
-      this.meta.repo,
-      this.headSha(),
-      this.baseSha()
+      this.assertMeta.owner,
+      this.assertMeta.repo,
+      baseRef,
+      headRef
     );
-    this.prData!.diffs = freezeArray(diffs);
+
+    this.assertPrData.diffs = freezeArray(diffs);
+    this.prChanges = this.renderPullRequest(this.assertPrData);
+
     this.reviewModule.setBaseAndHead({
-      base: this.baseSha(),
-      head: this.headSha()
+      base,
+      head
     });
 
     this.uiModule.endLoading();
@@ -429,6 +480,11 @@ export default class PullRequest extends Mixins(EventEnhancer)
     }
 
     return `${commit.sha.substring(0, 6)} ${shortMsg}`;
+  }
+
+  public changeEntryKey(change: PullRequestChange) {
+    const { base, head } = this.reviewModule.viewState;
+    return `${change.metadata.from}@${base}-${change.metadata.to}@${head}`;
   }
 
   public setActiveChangeEntry(index: number) {
@@ -452,7 +508,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
 
   public onNextFile() {
     this.setActiveChangeEntry(
-      Math.min(this.activeFileIndex + 1, this.prData!.diffs.length - 1)
+      Math.min(this.activeFileIndex + 1, this.assertPrData.diffs.length - 1)
     );
     this.scrollToActive();
   }
@@ -469,17 +525,24 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   public goToThread(thread: Thread) {
-    console.log("goToThread", thread.side, thread.file, thread.line);
+    console.log(
+      "goToThread",
+      thread.currentArgs.sha,
+      thread.currentArgs.file,
+      thread.currentArgs.line
+    );
 
-    const changes = this.prChanges!.changes;
+    const changes = this.prChanges!;
     for (let i = 0; i < changes.length; i++) {
       const change = changes[i];
 
       const match =
-        (thread.side === "left" && change.file.from === thread.file) ||
-        (thread.side === "right" && change.file.to === thread.file);
+        (thread.currentArgs.sha === this.reviewModule.viewState.base &&
+          change.file.from === thread.currentArgs.file) ||
+        (thread.currentArgs.sha === this.reviewModule.viewState.head &&
+          change.file.to === thread.currentArgs.file);
 
-      // TODO: Jump to specific file
+      // TODO(polish): Jump to specific line
       if (match) {
         console.log(`goToThread: jumping to index ${i}`);
         this.setActiveChangeEntry(i);
@@ -498,8 +561,33 @@ export default class PullRequest extends Mixins(EventEnhancer)
     return (this.$refs.changes as ChangeEntryAPI[])[this.activeFileIndex];
   }
 
+  get assertMeta(): ReviewMetadata {
+    if (this.meta === null) {
+      throw new Error("Assertion error: meta is null");
+    }
+
+    return this.meta;
+  }
+
+  get assertPrData(): PullRequestData {
+    if (this.prData === null) {
+      throw new Error("Assertion error: prData is null");
+    }
+
+    return this.prData;
+  }
+
+  get description(): string {
+    const body = this.assertPrData.pr.body;
+    if (!body || body.trim() === "") {
+      return "_No description provided_";
+    }
+
+    return body;
+  }
+
   get threads(): Thread[] {
-    let threads = this.reviewModule.review.threads.filter(t => !t.draft);
+    let threads = this.reviewModule.threads.filter(t => !t.draft);
 
     if (this.threadFilter !== "all") {
       const resolvedFilter = this.threadFilter === "resolved";
@@ -522,47 +610,45 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   get userHasApproved() {
-    return (
-      this.reviewModule.review.reviewers[
-        this.authModule.assertUser.username
-      ] === true
+    return this.reviewModule.review.state.approvers.includes(
+      this.authModule.assertUser.username
     );
   }
 
-  get isApproved() {
-    return this.hasSomeApproval && !this.hasUnresolved;
+  get localStatus() {
+    return this.reviewModule.estimatedState.status;
   }
 
-  get hasSomeApproval() {
-    return Object.values(this.reviewModule.review.reviewers).some(x => x);
+  get isApproved() {
+    return this.localStatus === ReviewStatus.APPROVED;
   }
 
   get hasUnresolved() {
     return this.numUnresolvedThreads > 0;
   }
 
-  get statusText() {
-    if (this.reviewers.length === 0) {
-      return "Needs Review";
-    }
+  get statusIconName() {
+    return typeUtils.statusIconName(this.localStatus);
+  }
 
-    if (this.hasSomeApproval) {
-      if (this.hasUnresolved) {
-        return "Needs Resolution";
-      } else {
-        return "Approved";
-      }
-    } else {
-      return "Needs Approval";
-    }
+  get statusClass() {
+    return typeUtils.statusClass(this.localStatus);
+  }
+
+  get statusText() {
+    return typeUtils.statusText(this.localStatus);
   }
 
   get reviewers(): string[] {
-    return Object.keys(this.reviewModule.review.reviewers);
+    return this.reviewModule.review.state.reviewers;
   }
 
   public didApprove(login: string): boolean {
-    return this.reviewModule.review.reviewers[login] || false;
+    return this.reviewModule.review.state.approvers.includes(login);
+  }
+
+  public canAddReviewer(): boolean {
+    return this.authModule.assertUser.username === this.assertMeta.author;
   }
 
   public canRemoveReviewer(login: string): boolean {
@@ -574,7 +660,7 @@ export default class PullRequest extends Mixins(EventEnhancer)
     }
 
     // The PR author can remove reviewers
-    if (myLogin === this.prData!.pr.user.login) {
+    if (this.assertMeta.author === myLogin) {
       return true;
     }
 
@@ -582,11 +668,11 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   public removeReviewer(login: string) {
-    this.reviewModule.removeReviewer({ login });
+    this.reviewModule.pushReviewer({ login, approved: undefined });
   }
 
   get loaded() {
-    return this.prData != null;
+    return !!this.prData && !!this.meta;
   }
 
   get drafts() {
@@ -594,37 +680,40 @@ export default class PullRequest extends Mixins(EventEnhancer)
   }
 
   get numThreads() {
-    return this.reviewModule.review.threads.length;
+    return this.reviewModule.threads.length;
   }
 
   get numUnresolvedThreads() {
-    // TODO: Draft comments affect this right now, they should not
-    const unresolved: Thread[] = this.reviewModule.review.threads.filter(
-      x => !x.resolved
-    );
-    return unresolved.length;
+    return this.reviewModule.numUnresolvedThreads;
   }
 
-  private renderPullRequest(prData: PullRequestData): PullRequestChanges {
-    const rendered: PullRequestChanges = {
-      changes: prData.diffs.map(file => {
-        const metadata: FileMetadata = getFileMetadata(file);
-        const data: ChunkData[] = file.chunks.map(chunk => {
-          return {
-            chunk,
-            pairs: freezeArray(renderPairs(zipChangePairs(chunk)))
-          };
-        });
+  get numTotalCommits() {
+    return this.assertPrData.commits.length + 1;
+  }
 
+  get numVisibleCommits() {
+    return this.reviewModule.viewState.visibleCommits.length;
+  }
+
+  // TODO(polish): Move this to a static utilitiy
+  private renderPullRequest(data: PullRequestData): PullRequestChange[] {
+    const changes: PullRequestChange[] = data.diffs.map(file => {
+      const metadata: FileMetadata = getFileMetadata(file);
+      const data: ChunkData[] = file.chunks.map(chunk => {
         return {
-          file,
-          metadata,
-          data
+          chunk,
+          pairs: freezeArray(renderPairs(zipChangePairs(chunk)))
         };
-      })
-    };
+      });
 
-    return rendered;
+      return {
+        file,
+        metadata,
+        data
+      };
+    });
+
+    return changes;
   }
 
   beforeMount() {

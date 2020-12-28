@@ -1,14 +1,22 @@
 import { Module, VuexModule, Mutation, Action } from "vuex-module-decorators";
 import { auth, functions } from "../../plugins/firebase";
 import { User } from "../../model/auth";
+import { AuthDelegate } from "../../../../shared/github";
 
-// TODO: Namespacing?
 @Module({
   name: "auth"
 })
 export default class AuthModule extends VuexModule {
   public signInKnown: boolean = false;
   public user: User | null = null;
+
+  static getDelegate(module: AuthModule): AuthDelegate {
+    return {
+      getToken: () => module.assertUser.githubToken,
+      getExpiry: () => module.assertUser.githubExpiry,
+      refreshAuth: () => module.refreshGithubAuth()
+    };
+  }
 
   @Mutation
   restoreFromLocalStorage() {
@@ -45,7 +53,7 @@ export default class AuthModule extends VuexModule {
     this.user!.githubToken = opts.githubToken;
     this.user!.githubExpiry = opts.githubExpiry;
 
-    // TODO: Could I just call setUser?
+    // TODO(polish): Could I just call setUser?
     localStorage.setItem("user", JSON.stringify(this.user));
   }
 
@@ -57,16 +65,15 @@ export default class AuthModule extends VuexModule {
     return !!this.user;
   }
 
-  // TODO: Maybe this shouldn't be here if it doesn't directly touch the state
-  @Action
+  @Action({ rawError: true })
   async startSignOut() {
     await auth().signOut();
   }
 
-  @Action
+  @Action({ rawError: true })
   async refreshGithubAuth() {
     console.log("refreshGithubAuth");
-    const tokenRes = await functions().httpsCallable("getGithubToken")();
+    const tokenRes = await functions().httpsCallable("api/getGithubToken")();
     const access_token = tokenRes.data.access_token;
     const access_token_expires = tokenRes.data.access_token_expires;
     this.context.commit("updateGithubToken", {

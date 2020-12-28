@@ -1,62 +1,29 @@
-export type Side = "left" | "right";
+import { Thread, ThreadArgs } from "../../../shared/types";
 
-export interface ReviewMetadata {
-  owner: string;
-  repo: string;
-  number: number;
+export interface SidePair<T> {
+  left: T;
+  right: T;
 }
 
-export interface Review {
-  metadata: ReviewMetadata;
-  reviewers: Record<string, boolean>;
-  threads: Thread[];
-  comments: Comment[];
-}
+export interface LangPair extends SidePair<string> {}
 
-export interface ThreadArgs {
-  file: string;
-  side: Side;
-  line: number;
-}
+export interface ThreadPair extends SidePair<Thread | null> {}
 
-export interface ThreadContentArgs {
-  sha: string;
-  lineContent: string;
-}
-
-export interface Thread extends ThreadArgs, ThreadContentArgs {
-  id: string;
-  draft: boolean;
-  resolved: boolean;
-}
-
-export interface CommentUser {
-  username: string;
-  photoURL: string;
-}
-
-export interface Comment extends CommentUser {
-  id: string;
-  threadId: string;
-  draft: boolean;
-  timestamp: string;
-  text: string;
-}
-
-export interface LangPair {
-  left: string;
-  right: string;
-}
-
-export interface ThreadPair {
-  left: Thread | null;
-  right: Thread | null;
-}
-
-export function threadMatch(thread: Thread, args: ThreadArgs): boolean {
+export function shouldDisplayThread(thread: Thread, args: ThreadArgs): boolean {
+  // TODO(stop): need a "strict" mode for currentArgs only
+  const keys: Array<keyof ThreadArgs> = ["file", "line", "side", "lineContent"];
   return (
-    args.file === thread.file &&
-    args.line === thread.line &&
-    args.side === thread.side
+    propsMatch(args, thread.currentArgs, keys) ||
+    propsMatch(args, thread.originalArgs, keys)
   );
+}
+
+export function propsMatch<T>(a: T, b: T, keys: Array<keyof T>): boolean {
+  for (const k of keys) {
+    if (a[k] !== b[k]) {
+      return false;
+    }
+  }
+
+  return true;
 }

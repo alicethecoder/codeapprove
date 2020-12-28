@@ -1,155 +1,425 @@
-import Vue from "vue";
 import { Module, VuexModule, Mutation, Action } from "vuex-module-decorators";
 import * as uuid from "uuid";
+import { shouldDisplayThread } from "@/model/review";
 import {
-  Review,
   Comment,
   CommentUser,
   Thread,
-  ThreadArgs,
-  Side,
-  threadMatch,
+  Review,
   ReviewMetadata,
-  ThreadContentArgs
-} from "@/model/review";
+  ThreadArgs,
+  ReviewStatus,
+  ReviewState,
+  ReviewIdentifier
+} from "../../../../shared/types";
+import {
+  addReviewer,
+  removeReviewer,
+  addApprover,
+  removeApprover,
+  calculateReviewStatus
+} from "../../../../shared/typeUtils";
 import * as events from "../../plugins/events";
-import { NEW_COMMENT_EVENT, AddCommentEvent } from "../../plugins/events";
+import firebase from "firebase/app";
+import { firestore } from "../../plugins/firebase";
+import {
+  repoPath,
+  reviewPath,
+  threadsPath,
+  commentsPath
+} from "../../../../shared/database";
+import { CountdownLatch } from "../../../../shared/asyncUtils";
+import { PullRequestData } from "../../../../shared/github";
 
-// TODO: Namespacing?
+type Listener = () => void;
+
+interface ViewState {
+  base: string;
+  head: string;
+  commits: string[];
+  visibleCommits: string[];
+}
+
+const SortByTimestamp = function(a: Comment, b: Comment) {
+  return a.timestamp - b.timestamp;
+};
+
 @Module({
   name: "review"
 })
 export default class ReviewModule extends VuexModule {
-  public reviewState = {
+  // UI State related to the review (not persisted)
+  public viewState: ViewState = {
+    // What the user is viewing (not the actual base and head)
     base: "unknown",
-    head: "unknown"
+    head: "unknown",
+    commits: [],
+    visibleCommits: []
   };
 
+  // Threads and comments which are attached to the review
+  public threads: Thread[] = [];
+  public comments: Comment[] = [];
+
+  // Local estimate of review state
+  public estimatedState = {
+    status: ReviewStatus.NEEDS_REVIEW
+  };
+
+  public reviewLoaded = false;
+
+  // The review itself
   public review: Review = {
-    // TODO: Real
     metadata: {
       owner: "unknown",
       repo: "unknown",
-      number: 0
+      number: 0,
+      author: "unknown",
+      title: "unknown",
+      base: {
+        sha: "unknown",
+        label: "unknown:unknown"
+      },
+      head: {
+        sha: "unknown",
+        label: "unknown:unknown"
+      },
+      updated_at: new Date().getTime()
     },
-    reviewers: {},
-    threads: [],
-    comments: []
+    state: {
+      status: ReviewStatus.NEEDS_REVIEW,
+      closed: false,
+      reviewers: [],
+      approvers: [],
+      unresolved: 0,
+      last_comment: 0
+    }
   };
 
+  public listeners: { [key: string]: Listener | null } = {
+    review: null,
+    comments: null,
+    threads: null
+  };
+
+  static forceConverter<T>(): firebase.firestore.FirestoreDataConverter<T> {
+    return {
+      toFirestore: (modelObject: T) => {
+        return modelObject;
+      },
+      fromFirestore: (snapshot, _) => {
+        return snapshot.data() as T;
+      }
+    };
+  }
+
+  static repoRef(opts: ReviewIdentifier) {
+    return firestore().doc(repoPath(opts));
+  }
+
+  static reviewRef(opts: ReviewIdentifier) {
+    return firestore()
+      .doc(reviewPath(opts))
+      .withConverter(this.forceConverter<Review>());
+  }
+
+  static threadsRef(opts: ReviewIdentifier) {
+    return firestore()
+      .collection(threadsPath(opts))
+      .withConverter(this.forceConverter<Thread>());
+  }
+
+  static commentsRef(opts: ReviewIdentifier) {
+    return firestore()
+      .collection(commentsPath(opts))
+      .withConverter(this.forceConverter<Comment>());
+  }
+
   get drafts() {
-    return this.review.comments.filter(x => x.draft);
+    return this.comments.filter(x => x.draft);
+  }
+
+  get numUnresolvedThreads() {
+    return this.threads.filter(x => !x.draft && !x.resolved).length;
   }
 
   get commentsByThread() {
     return (threadId: string) => {
-      return this.review.comments.filter(x => x.threadId === threadId);
+      return this.comments
+        .filter(x => x.threadId === threadId)
+        .sort(SortByTimestamp);
     };
   }
 
   get threadById() {
     return (threadId: string) => {
-      return this.review.threads.find(x => x.id === threadId) || null;
+      return this.threads.find(x => x.id === threadId) || null;
     };
   }
 
   get threadByArgs() {
-    return (args: ThreadArgs | null) => {
-      if (args === null) {
-        return null;
-      }
-      return this.review.threads.find(t => threadMatch(t, args)) || null;
-    };
-  }
-
-  get threadsByFile() {
-    return (file: string, side: Side) => {
-      return this.review.threads.filter(
-        x => x.file === file && x.side === side
+    return (args: ThreadArgs) => {
+      // Filter visible threads
+      return (
+        this.threads
+          .filter(
+            t =>
+              this.viewState.visibleCommits.includes(t.currentArgs.sha) ||
+              this.viewState.visibleCommits.includes(t.originalArgs.sha)
+          )
+          .find(t => shouldDisplayThread(t, args)) || null
       );
     };
   }
 
-  @Mutation
-  public initializeReview(metadata: ReviewMetadata) {
-    // TODO: Should this be an action which pulls down information?
-    this.review = {
-      metadata,
-      reviewers: {},
-      threads: [],
-      comments: []
+  get threadsByFile() {
+    return (file: string) => {
+      return this.threads.filter(x => x.currentArgs.file === file);
     };
   }
 
-  @Mutation
-  public pushThread(thread: Thread) {
-    console.log(`pushThread(${thread.id})`);
-    this.review.threads.push(thread);
+  @Action({ rawError: true })
+  public async initializeReview(opts: {
+    id: ReviewIdentifier;
+    data: PullRequestData;
+  }) {
+    this.context.commit("stopListening");
+    this.context.commit("setReviewLoaded", false);
+
+    const latch = new CountdownLatch(3);
+
+    const reviewUnsub = ReviewModule.reviewRef(opts.id).onSnapshot(
+      { includeMetadataChanges: true },
+      snap => {
+        console.log(
+          `review#onSnapshot: pending=${snap.metadata.hasPendingWrites}`
+        );
+        const review = snap.data();
+        this.context.commit("setReviewLoaded", snap.exists);
+
+        if (review) {
+          this.context.commit("setReviewMetadata", review.metadata);
+
+          const commits = opts.data.commits.map(c => c.sha);
+          commits.unshift(opts.data.pr.base.sha);
+
+          this.context.commit("setViewState", {
+            base: review.metadata.base.sha,
+            head: review.metadata.head.sha,
+            commits,
+            visibleCommits: commits
+          });
+
+          // For the review state we actually prefer our guesses
+          if (!snap.metadata.hasPendingWrites) {
+            this.context.commit("setReviewState", review.state);
+          }
+          this.context.commit("calculateReviewStatus");
+        }
+
+        latch.decrement();
+      }
+    );
+
+    const threadsUnsub = ReviewModule.threadsRef(opts.id).onSnapshot(snap => {
+      console.log("threads#onSnapshot", snap.size);
+      const threads = snap.docs.map(doc => doc.data());
+      this.context.commit("setThreads", threads);
+      this.context.commit("calculateReviewStatus");
+
+      snap.docChanges().forEach(chg => {
+        const thread = chg.doc.data();
+        events.emit(events.NEW_THREAD_EVENT, { threadId: thread.id });
+      });
+
+      latch.decrement();
+    });
+
+    const commentsUnsub = ReviewModule.commentsRef(opts.id).onSnapshot(snap => {
+      console.log("comments#onSnapshot", snap.size);
+      const comments = snap.docs.map(doc => doc.data() as Comment);
+      this.context.commit("setComments", comments);
+
+      snap.docChanges().forEach(chg => {
+        const comment = chg.doc.data() as Comment;
+        events.emit(events.NEW_COMMENT_EVENT, { threadId: comment.threadId });
+      });
+
+      latch.decrement();
+    });
+
+    this.context.commit("setListeners", {
+      review: reviewUnsub,
+      comments: commentsUnsub,
+      threads: threadsUnsub
+    });
+
+    return latch.wait();
   }
 
   @Mutation
-  public pushComment(comment: Comment) {
-    console.log(`pushComment(${comment.id})`);
-    this.review.comments.push(comment);
-
-    // TODO: Is there a way I could automate this?
-    events.emit(NEW_COMMENT_EVENT, { threadId: comment.threadId });
+  public setListeners(opts: {
+    review: Listener | null;
+    comments: Listener | null;
+    threads: Listener | null;
+  }) {
+    this.listeners.review = opts.review;
+    this.listeners.comments = opts.comments;
+    this.listeners.threads = opts.threads;
   }
 
   @Mutation
-  public setThreadResolved(opts: { threadId: string; resolved: boolean }) {
-    const thread = this.review.threads.find(x => x.id === opts.threadId);
+  public stopListening() {
+    for (const key of Object.keys(this.listeners)) {
+      const listener = this.listeners[key];
+      if (listener) {
+        listener();
+      }
+      this.listeners[key] = null;
+    }
+  }
+
+  @Mutation
+  public calculateReviewStatus() {
+    if (this.review.state.closed) {
+      this.estimatedState.status = this.review.state.status;
+      return;
+    }
+
+    // Use server state but update unresolved threads
+    const unresolved = this.threads.filter(x => !x.draft && !x.resolved).length;
+    const newState = {
+      ...this.review.state,
+      unresolved
+    };
+
+    // Estimate review status
+    this.estimatedState.status = calculateReviewStatus(newState);
+    if (this.estimatedState.status !== this.review.state.status) {
+      console.log(
+        `calculateReviewStatus(${JSON.stringify(newState)}): ${
+          this.review.state.status
+        } --> ${this.estimatedState.status}`
+      );
+    }
+  }
+
+  @Mutation
+  public setReviewLoaded(reviewLoaded: boolean) {
+    this.reviewLoaded = reviewLoaded;
+  }
+
+  @Mutation
+  public setReviewMetadata(metadata: ReviewMetadata) {
+    this.review.metadata = metadata;
+  }
+
+  @Mutation
+  public setReviewState(state: ReviewState) {
+    this.review.state = state;
+  }
+
+  @Mutation
+  public setViewState(viewState: ViewState) {
+    this.viewState = viewState;
+  }
+
+  @Mutation
+  public setThreads(threads: Thread[]) {
+    this.threads = threads;
+  }
+
+  @Mutation
+  public setComments(comments: Comment[]) {
+    this.comments = comments;
+  }
+
+  @Mutation
+  public setThreadPendingState(opts: { threadId: string; resolved?: boolean }) {
+    const thread = this.threads.find(x => x.id === opts.threadId);
     if (thread) {
-      thread.resolved = opts.resolved;
+      const pendingResolved =
+        opts.resolved === undefined ? null : opts.resolved;
+      thread.pendingResolved = pendingResolved;
     }
   }
 
-  @Mutation
-  public removeDraftStatus() {
-    for (const thread of this.review.threads) {
-      thread.draft = false;
-    }
+  @Action({ rawError: true })
+  public pushReviewer(opts: { login: string; approved?: boolean }) {
+    this.context.commit("setReviewer", opts);
 
-    for (const comment of this.review.comments) {
-      comment.draft = false;
-    }
+    // Estimate local state
+    this.context.commit("calculateReviewStatus");
+
+    return ReviewModule.reviewRef(this.review.metadata).update(
+      "state",
+      this.review.state
+    );
   }
 
   @Mutation
-  public pushReviewer(opts: { login: string; approved: boolean }) {
-    // Makes the new map key reactive
-    Vue.set(this.review.reviewers, opts.login, opts.approved);
-  }
+  public setReviewer(opts: { login: string; approved?: boolean }) {
+    if (opts.approved !== undefined) {
+      addReviewer(this.review, opts.login);
+    } else {
+      removeReviewer(this.review, opts.login);
+    }
 
-  @Mutation
-  public removeReviewer(opts: { login: string }) {
-    // Makes the removed map key reactive
-    Vue.delete(this.review.reviewers, opts.login);
+    if (opts.approved === true) {
+      addApprover(this.review, opts.login);
+    } else {
+      removeApprover(this.review, opts.login);
+    }
   }
 
   @Mutation
   public setBaseAndHead(opts: { base: string; head: string }) {
-    this.reviewState.base = opts.base;
-    this.reviewState.head = opts.head;
+    console.log(`review#setBaseAndHead(${opts.base}, ${opts.head})`);
+    this.viewState.base = opts.base;
+    this.viewState.head = opts.head;
+
+    this.viewState.visibleCommits = this.viewState.commits.slice(
+      this.viewState.commits.indexOf(this.viewState.base),
+      this.viewState.commits.indexOf(this.viewState.head) + 1
+    );
   }
 
-  @Action
-  public newThread(opts: { args: ThreadArgs; ca: ThreadContentArgs }): Thread {
+  @Action({ rawError: true })
+  public async newThread(opts: {
+    username: string;
+    args: ThreadArgs;
+  }): Promise<Thread> {
     console.log(`newThread(${JSON.stringify(opts)})`);
+
+    const prHead = this.review.metadata.head.sha;
+    if (opts.args.sha !== prHead) {
+      console.log(
+        `newThread: thread posted on outdated commit (head=${prHead})`
+      );
+    }
+
     const thread: Thread = {
       id: uuid.v4(),
+      username: opts.username,
       resolved: false,
+      pendingResolved: null,
       draft: true,
-      ...opts.args,
-      ...opts.ca
+      currentArgs: opts.args,
+      originalArgs: opts.args
     };
 
-    // TODO: Network and shit
-    this.context.commit("pushThread", thread);
+    // Estimate local state
+    this.context.commit("calculateReviewStatus");
+
+    // Push the thread to Firebase
+    await ReviewModule.threadsRef(this.review.metadata)
+      .doc(thread.id)
+      .set(thread);
+
     return thread;
   }
 
-  @Action
+  @Action({ rawError: true })
   public async newComment(opts: {
     threadId: string;
     user: CommentUser;
@@ -163,45 +433,132 @@ export default class ReviewModule extends VuexModule {
       photoURL: opts.user.photoURL,
       text: opts.text,
 
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().getTime(),
       draft: true
     };
 
-    // TODO: Network and shit
-    this.context.commit("pushComment", comment);
+    // Estimate local state
+    this.context.commit("calculateReviewStatus");
+
+    // Push the comment to Firebase
+    await ReviewModule.commentsRef(this.review.metadata)
+      .doc(comment.id)
+      .set(comment);
+
     return comment;
   }
 
-  @Action
-  public async sendDraftComments(opts: { approve: boolean }) {
-    // TODO: Network and shit
-    this.context.commit("removeDraftStatus");
+  @Action({ rawError: true })
+  public async discardDraftComments(opts: { username: string }) {
+    const batch = firestore().batch();
+
+    const draftThreads = this.threads
+      .filter(t => t.draft)
+      .filter(t => t.username === opts.username);
+
+    for (const thread of draftThreads) {
+      batch.delete(
+        ReviewModule.threadsRef(this.review.metadata).doc(thread.id)
+      );
+    }
+
+    const draftComments = this.comments
+      .filter(c => c.draft)
+      .filter(c => c.username === opts.username);
+
+    for (const comment of draftComments) {
+      batch.delete(
+        ReviewModule.commentsRef(this.review.metadata).doc(comment.id)
+      );
+    }
+
+    await batch.commit();
   }
 
-  @Action
+  @Action({ rawError: true })
+  public async sendDraftComments(opts: { username: string }) {
+    const batch = firestore().batch();
+    const nowTime = new Date().getTime();
+
+    // Find all threads that are drafts which we started and mark them
+    // as not draft.
+    const draftThreads = this.threads
+      .filter(t => t.draft)
+      .filter(t => t.username === opts.username);
+
+    for (const thread of draftThreads) {
+      batch.update(
+        ReviewModule.threadsRef(this.review.metadata).doc(thread.id),
+        {
+          draft: false
+        }
+      );
+    }
+
+    // Find all threads which are pending resolution and flip them
+    // TODO(stop): Is this safe? Is there any way we ever clobber someone else here?
+    const pendingResolutionThreads = this.threads.filter(
+      t => t.pendingResolved !== null && t.pendingResolved !== t.resolved
+    );
+
+    for (const thread of pendingResolutionThreads) {
+      batch.update(
+        ReviewModule.threadsRef(this.review.metadata).doc(thread.id),
+        {
+          resolved: thread.pendingResolved,
+          pendingResolved: null
+        }
+      );
+    }
+
+    // Find all comments that are drafts which we wrote and mark them
+    // as not draft.
+    const draftComments = this.comments
+      .filter(c => c.draft)
+      .filter(t => t.username === opts.username);
+
+    for (const comment of draftComments) {
+      batch.update(
+        ReviewModule.commentsRef(this.review.metadata).doc(comment.id),
+        {
+          draft: false,
+          timestamp: nowTime
+        }
+      );
+    }
+
+    // Set the review time
+    batch.update(ReviewModule.reviewRef(this.review.metadata), {
+      "state.last_comment": nowTime
+    });
+
+    // Estimate local state
+    this.context.commit("calculateReviewStatus");
+
+    await batch.commit();
+  }
+
+  @Action({ rawError: true })
   public async handleAddCommentEvent(opts: {
-    e: AddCommentEvent;
+    e: events.AddCommentEvent;
     user: CommentUser;
   }) {
+    console.log(`review#handleAddCommentEvent(${JSON.stringify(opts)})`);
+
     const e = opts.e;
     const threadArgs: ThreadArgs = {
       file: e.file,
-      side: e.side,
-      line: e.line
-    };
-
-    // TODO: This needs to be real
-    const threadContentArgs: ThreadContentArgs = {
       sha: e.sha,
+      side: e.side,
+      line: e.line,
       lineContent: e.lineContent
     };
 
-    // TODO: Doing this inside the comment thread may help reactivity?
     let thread: Thread | null = this.threadByArgs(threadArgs);
     if (!thread) {
       thread = await this.newThread({
-        args: threadArgs,
-        ca: threadContentArgs
+        username: opts.user.username,
+        args: threadArgs
       });
     }
 
@@ -213,11 +570,11 @@ export default class ReviewModule extends VuexModule {
     });
 
     // If resolution state specified, set that
-    if (e.resolve != undefined) {
-      this.context.commit("setThreadResolved", {
-        threadId: thread.id,
-        resolved: e.resolve
-      });
-    }
+    this.context.commit("setThreadPendingState", {
+      threadId: thread.id,
+      resolved: e.resolve
+    });
+
+    // TODO(stop): At this point the resolution state of the review may have changed!
   }
 }

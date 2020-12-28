@@ -1,21 +1,37 @@
-import * as firebase from "firebase/app";
+import firebase from "firebase/app";
 import "firebase/analytics";
 import "firebase/auth";
+import "firebase/firestore";
 import "firebase/functions";
 import "firebase/remote-config";
 
 import { config } from "./config";
 
+let _functions: firebase.functions.Functions | undefined = undefined;
+
+export function analytics(): firebase.analytics.Analytics {
+  return app().analytics();
+}
+
 export function auth(): firebase.auth.Auth {
   return app().auth();
 }
 
+export function firestore(): firebase.firestore.Firestore {
+  return app().firestore();
+}
+
 export function functions(): firebase.functions.Functions {
-  const functions = app().functions();
-  if (process.env.NODE_ENV !== "production") {
-    functions.useFunctionsEmulator("http://localhost:5001");
+  if (_functions === undefined) {
+    const host =
+      process.env.NODE_ENV !== "production"
+        ? "http://localhost:5000"
+        : "https://codeapprove.com";
+
+    _functions = app().functions(host);
   }
-  return functions;
+
+  return _functions;
 }
 
 export function remoteConfig(): firebase.remoteConfig.RemoteConfig {
@@ -24,7 +40,12 @@ export function remoteConfig(): firebase.remoteConfig.RemoteConfig {
 
 function app(): firebase.app.App {
   if (firebase.apps.length === 0) {
-    firebase.initializeApp(config.firebase);
+    const app = firebase.initializeApp(config.firebase);
+
+    if (process.env.NODE_ENV !== "production") {
+      app.firestore().useEmulator("localhost", 8040);
+      app.functions().useEmulator("localhost", 5001);
+    }
   }
 
   return firebase.app();

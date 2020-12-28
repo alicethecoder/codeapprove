@@ -1,15 +1,5 @@
-// TODO: Closed
-export type Status = "approved" | "pending" | "merged";
+import { Review } from "../../../shared/types";
 
-export interface InboxItemData {
-  owner: string;
-  repo: string;
-  number: string;
-  title: string;
-  status: Status;
-  updated: number;
-}
-
-export function itemSlug(item: InboxItemData) {
-  return `${item.owner}/${item.repo}#${item.number}`;
+export function itemSlug(item: Review) {
+  return `${item.metadata.owner}/${item.metadata.repo}#${item.metadata.number}`;
 }

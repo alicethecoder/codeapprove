@@ -2,36 +2,46 @@
  * A rewrite of https://github.com/probot/serverless-gcf with more modern deps
  */
 import * as functions from "firebase-functions";
-import { createProbot, Application, Probot } from "probot";
-import { findPrivateKey } from "probot/lib/private-key";
+import { Application, Probot } from "probot";
+import { getPrivateKey } from "@probot/get-private-key";
+import { ApplicationFunction } from "probot/lib/types";
 
 export interface ProbotConfig {
-  id: number;
+  appId: number;
   privateKey: string;
   webhookSecret: string;
 }
 
 let probot: Probot | undefined;
-type ProbotFn = (app: Application) => any;
 
-function loadProbot(config: ProbotConfig, appFn: ProbotFn): Probot {
-  process.env.PRIVATE_KEY = config.privateKey;
-  const probot = createProbot({
-    id: config.id,
-    secret: config.webhookSecret,
-    cert: findPrivateKey() || undefined,
+function loadProbot(config: ProbotConfig, appFn: ApplicationFunction): Probot {
+  const privateKey = getPrivateKey({
+    env: {
+      PRIVATE_KEY: config.privateKey,
+    },
   });
-  delete process.env.PRIVATE_KEY;
+
+  const probot = new Probot({
+    appId: config.appId,
+    secret: config.webhookSecret,
+    privateKey: privateKey || undefined,
+  });
 
   probot.load(appFn);
   return probot;
 }
 
-export function serverless(config: ProbotConfig, appFn: ProbotFn) {
+export function serverless(config: ProbotConfig, appFn: ApplicationFunction) {
   return async (
     request: functions.https.Request,
     response: functions.Response
   ) => {
+    // Probot uses NODE_ENV === 'production' to disable this check but that's not set in GCF,
+    // so we disable it whenever we're not in the Functions emulator.
+    process.env.DISABLE_WEBHOOK_EVENT_CHECK = `${
+      process.env.FUNCIONS_EMULATOR !== "true"
+    }`;
+
     probot = probot || loadProbot(config, appFn);
 
     // 🤖 A friendly message
@@ -51,7 +61,7 @@ export function serverless(config: ProbotConfig, appFn: ProbotFn) {
     }
 
     // Do the thing
-    console.log(
+    functions.logger.log(
       `Received event ${name}${
         request.body.action ? "." + request.body.action : ""
       }`
@@ -59,7 +69,7 @@ export function serverless(config: ProbotConfig, appFn: ProbotFn) {
     if (name) {
       try {
         await probot.receive({
-          name,
+          name: name as any,
           id,
           payload: request.body,
         });

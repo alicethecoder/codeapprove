@@ -1,25 +1,30 @@
 import Vue from "vue";
+import { Side } from "../../../shared/types";
 
 const BUS = new Vue();
 
 type Callback<T> = (arg: T) => void;
 
-import { Side } from "../model/review";
-
 export const ADD_COMMENT_EVENT = "add-comment";
 export interface AddCommentEvent {
-  side: Side;
   line: number;
   content: string;
   resolve?: boolean;
 
+  // TODO(polish): Making this into ThreadArgs would be cleaner
   file: string;
+  side: Side;
   lineContent: string;
   sha: string;
 }
 
 export const NEW_COMMENT_EVENT = "new-comment";
 export interface NewCommentEvent {
+  threadId: string;
+}
+
+export const NEW_THREAD_EVENT = "new-thread";
+export interface NewThreadEvent {
   threadId: string;
 }
 

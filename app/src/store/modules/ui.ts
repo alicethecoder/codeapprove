@@ -5,7 +5,6 @@ export interface Message {
   text: string;
 }
 
-// TODO: Namespacing?
 @Module({
   name: "ui"
 })
@@ -14,7 +13,7 @@ export default class UIModule extends VuexModule {
 
   public messages: Message[] = [];
 
-  @Action
+  @Action({ rawError: true })
   async addDisappearingError(text: string) {
     const err = {
       type: "error",

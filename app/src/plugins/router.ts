@@ -10,8 +10,11 @@ import Home from "@/components/pages/Home.vue";
 import SignIn from "@/components/pages/SignIn.vue";
 import PullRequest from "@/components/pages/PullRequest.vue";
 import Inbox from "@/components/pages/Inbox.vue";
+import Pricing from "@/components/pages/Pricing.vue";
+import FourOhFour from "@/components/pages/FourOhFour.vue";
 
 import store from "@/store";
+import * as cookies from "../plugins/cookies";
 
 const authModule = getModule(AuthModule, store);
 const uiModule = getModule(UIModule, store);
@@ -36,8 +39,21 @@ const router = new VueRouter({
       meta: {
         auth: true
       }
+    },
+    {
+      path: "/pricing",
+      component: Pricing
+    },
+    {
+      path: "/404",
+      component: FourOhFour
     }
-  ]
+  ],
+  scrollBehavior(to, from, savedPosition) {
+    // Always scroll to top
+    // See: https://router.vuejs.org/guide/advanced/scroll-behavior.html
+    return { x: 0, y: 0 };
+  }
 });
 
 router.beforeEach((to, from, next) => {
@@ -46,6 +62,7 @@ router.beforeEach((to, from, next) => {
 
   if (to.meta && to.meta.auth && !authModule.signedIn) {
     console.log("Not signed in, blocking route: ", to.fullPath);
+    Vue.$cookies.set(cookies.SIGNIN_PATH, to.path);
     next({ path: "/signin" });
     return;
   }

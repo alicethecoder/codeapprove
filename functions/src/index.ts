@@ -4,24 +4,30 @@ import * as qs from "querystring";
 
 import * as api from "./api";
 import * as config from "./config";
-import * as github from "./github";
+import * as githubAuth from "./githubAuth";
 import * as users from "./users";
 import * as log from "./logger";
 
 import { serverless, ProbotConfig } from "./probot-serverless-gcf";
-import { bot } from "./bot";
-
-const ax = api.getAxios();
+import { bot, updatePullRequest } from "./bot";
+import { baseUrl } from "../../shared/config";
 
 admin.initializeApp();
 
+const ax = api.getAxios();
+
 function getProbotConfig(): ProbotConfig {
   return {
-    id: config.github().app_id,
+    appId: config.github().app_id,
     webhookSecret: config.github().webhook_secret,
     privateKey: config.github().private_key_encoded,
   };
 }
+
+/**
+ * Review state management
+ */
+export { onReviewWrite, onThreadWrite } from "./review";
 
 /**
  * Probot app
@@ -29,6 +35,21 @@ function getProbotConfig(): ProbotConfig {
 export const githubWebhook = functions.https.onRequest(
   serverless(getProbotConfig(), bot)
 );
+
+// TODO(stop): Probably should hide this?
+export const updateThreads = functions.https.onRequest(async (req, res) => {
+  const owner = req.query.owner as string;
+  const repo = req.query.repo as string;
+  const number = Number.parseInt(req.query.number as string);
+
+  await updatePullRequest(admin.firestore(), owner, repo, number, {
+    force: true,
+  });
+
+  res.json({
+    status: "ok",
+  });
+});
 
 /**
  * Exchange a Firebase Auth token for a github access token
@@ -39,10 +60,10 @@ export const getGithubToken = functions.https.onCall(async (data, ctx) => {
   }
 
   const user = await users.getUser(ctx.auth.uid);
-  log.debug("uid", ctx.auth.uid);
+  log.info("uid", ctx.auth.uid);
   log.secret("user", user);
 
-  const token = await github.exchangeRefreshToken(user.refresh_token);
+  const token = await githubAuth.exchangeRefreshToken(user.refresh_token);
   log.secret("token", token);
 
   // Save updated token to the database
@@ -55,7 +76,7 @@ export const getGithubToken = functions.https.onCall(async (data, ctx) => {
 
   return {
     access_token: token.access_token,
-    access_token_expires: github.getExpiryDate(token.expires_in),
+    access_token_expires: githubAuth.getExpiryDate(token.expires_in),
   };
 });
 
@@ -65,12 +86,12 @@ export const getGithubToken = functions.https.onCall(async (data, ctx) => {
 export const oauth = functions.https.onRequest(async (request, response) => {
   const code = request.query.code as string;
 
-  log.debug("oauth", "Getting access tokens...");
+  log.info("oauth", "Getting access tokens...");
   const {
     access_token,
     refresh_token,
     refresh_token_expires_in,
-  } = await github.exchangeCode(code);
+  } = await githubAuth.exchangeCode(code);
 
   log.secret("refresh_token", refresh_token);
   log.secret("refresh_token_expires_in", refresh_token_expires_in);
@@ -82,11 +103,11 @@ export const oauth = functions.https.onRequest(async (request, response) => {
   });
 
   const { id, login, avatar_url } = userRes.data;
-  log.debug("Github user:", id, login);
+  log.info(`Github user: id=${id} login=${login}`);
 
   const userId = `${id}`;
 
-  log.debug("Firebase user:", userId);
+  log.info("Firebase user:", userId);
   let userExists = false;
   try {
     await admin.auth().getUser(userId);
@@ -118,7 +139,6 @@ export const oauth = functions.https.onRequest(async (request, response) => {
     custom_token,
   };
 
-  // TODO: There should probably be a special path here like /customauth
-  const baseUrl = config.baseUrl();
-  response.redirect(`${baseUrl}/signin?${qs.stringify(res)}`);
+  // TODO(polish): There should probably be a special path here like /customauth;
+  response.redirect(`${baseUrl()}/signin?${qs.stringify(res)}`);
 });

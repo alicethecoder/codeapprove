@@ -1,0 +1,10 @@
+{
+  "name": "shared",
+  "version": "1.0.0",
+  "scripts": {},
+  "devDependencies": {
+    "@octokit/graphql": "^4.5.3",
+    "@octokit/rest": "^18.0.0",
+    "parse-diff": "^0.7.1"
+  }
+}

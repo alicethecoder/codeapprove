@@ -17,8 +17,14 @@
         <div
           class="flex items-center pl-2 pr-1 py-2 font-bold border-b border-blue-500"
         >
-          <code>{{ thread.file }}</code>
+          <code>{{ thread.currentArgs.file }}</code>
           <span class="flex-grow"><!-- spacer --></span>
+          <div
+            v-if="isOutdated(thread)"
+            class="text-sm rounded border border-yellow-400 px-1"
+          >
+            <code class="italic text-yellow-400">outdated</code>
+          </div>
           <div
             v-if="resolved"
             class="text-sm rounded border border-gray-500 px-1"
@@ -28,9 +34,15 @@
         </div>
         <div class="bg-dark-3">
           <prism
+            v-if="!isOutdated(thread)"
             class="code-preview hover:underline cursor-pointer"
             @click="goToLine()"
-            >{{ thread.line }} {{ thread.lineContent }}</prism
+            >{{ thread.currentArgs.line }}
+            {{ thread.currentArgs.lineContent }}</prism
+          >
+          <prism v-else class="code-preview"
+            >{{ thread.originalArgs.line }}
+            {{ thread.originalArgs.lineContent }}</prism
           >
         </div>
       </div>
@@ -39,8 +51,11 @@
       <div v-for="(comment, index) in comments" :key="index" class="flex p-2">
         <img class="flex-none avatar mt-1 mr-4" :src="comment.photoURL" />
         <div class="flex-grow">
-          <div class="inline-flex items-center">
+          <div class="inline-flex flex-row items-baseline">
             <span class="font-bold mr-2">{{ comment.username }}</span>
+            <span class="mr-2 text-wht-md text-sm">
+              {{ formatTimestamp(comment.timestamp) }}
+            </span>
             <span v-if="comment.draft" class="text-wht-md text-sm"
               >(draft)</span
             >
@@ -123,12 +138,7 @@ import * as firebase from "firebase/app";
 
 import { EventEnhancer } from "../../components/mixins/EventEnhancer";
 import MarkdownContent from "@/components/elements/MarkdownContent.vue";
-import {
-  AddCommentEvent,
-  ADD_COMMENT_EVENT,
-  NEW_COMMENT_EVENT
-} from "../../plugins/events";
-import { Thread, ThreadArgs, Comment, Side } from "../../model/review";
+import { Thread, Comment } from "../../../../shared/types";
 import AuthModule from "../../store/modules/auth";
 import ReviewModule from "../../store/modules/review";
 import { auth } from "../../plugins/firebase";
@@ -147,11 +157,9 @@ type Mode = "inline" | "standalone";
 export default class CommentThread extends Mixins(EventEnhancer)
   implements CommentThreadAPI {
   @Prop({ default: "inline" }) mode!: Mode;
-  @Prop() side!: Side;
-  @Prop() threadId!: string | null;
   @Prop() line!: number;
-  // TODO: Do we really need this here?
-  @Prop() content!: string;
+  @Prop() sha!: string;
+  @Prop() threadId!: string | null;
 
   authModule = getModule(AuthModule, this.$store);
   reviewModule = getModule(ReviewModule, this.$store);
@@ -165,7 +173,7 @@ export default class CommentThread extends Mixins(EventEnhancer)
   draftComment: string = "";
 
   mounted() {
-    events.on(NEW_COMMENT_EVENT, this.onNewComment);
+    events.on(events.NEW_COMMENT_EVENT, this.onNewComment);
     this.loadComments();
 
     if (this.mode === "inline" && this.noComments) {
@@ -177,11 +185,15 @@ export default class CommentThread extends Mixins(EventEnhancer)
   }
 
   destroyed() {
-    events.off(NEW_COMMENT_EVENT, this.onNewComment);
+    events.off(events.NEW_COMMENT_EVENT, this.onNewComment);
   }
 
   get hotKeyMap(): KeyMap {
     return COMMENT_THREAD_KEY_MAP(this);
+  }
+
+  public isOutdated(thread: Thread) {
+    return thread.currentArgs.line < 0;
   }
 
   private loadComments() {
@@ -209,11 +221,6 @@ export default class CommentThread extends Mixins(EventEnhancer)
     return this.draftComment.length > 0;
   }
 
-  // TODO: Don't show if outdated
-  get outdated(): boolean {
-    return this.thread != null && this.thread.lineContent !== this.content;
-  }
-
   get resolved(): boolean {
     return this.thread != null && this.thread.resolved;
   }
@@ -224,23 +231,27 @@ export default class CommentThread extends Mixins(EventEnhancer)
 
   public async addComment(resolve?: boolean) {
     console.log(`CommendThread#addComment(${resolve})`);
-    const partialEvt: Partial<AddCommentEvent> = {
+
+    const sha = this.thread ? this.thread.currentArgs.sha : this.sha;
+    const partialEvt: Partial<events.AddCommentEvent> = {
       content: this.draftComment,
-      side: this.side,
       line: this.line,
-      resolve: resolve
+      resolve: resolve,
+      sha: sha
     };
 
-    // In standalone mode all of this will be known
+    // In standalone mode DiffLine and ChangeEntry are skipped,
+    // but we know all of this already.
     if (this.thread) {
-      partialEvt.file = this.thread.file;
-      partialEvt.sha = this.thread.sha;
-      partialEvt.lineContent = this.thread.lineContent;
+      partialEvt.file = this.thread.currentArgs.file;
+      partialEvt.side = this.thread.currentArgs.side;
+      partialEvt.lineContent = this.thread.currentArgs.lineContent;
     }
 
+    // Start the event chain which goes through DiffLine, ChangeEntry, and PullRequest
     this.bubbleUp(partialEvt);
 
-    // TODO: Need some kind of "pending" state until the thing hits the server
+    // TODO(stop): Need some kind of "pending" state until the thing hits the server
 
     // Reset local state
     this.draftComment = "";
@@ -262,6 +273,36 @@ export default class CommentThread extends Mixins(EventEnhancer)
 
   public goToLine() {
     this.$emit("goto");
+  }
+
+  public formatTimestamp(timestamp: number): string {
+    const today = new Date();
+    const date = new Date(timestamp);
+    const locale = navigator.language || "en-US";
+
+    // Ex: "Sep 20"
+    const dateFormat = new Intl.DateTimeFormat(locale, {
+      month: "short",
+      day: "2-digit"
+    });
+
+    // Ex: "9:01 AM"
+    const timeFormat = new Intl.DateTimeFormat(locale, {
+      hour: "numeric",
+      minute: "numeric"
+    });
+
+    const onSameDay =
+      date.getFullYear() === today.getFullYear() &&
+      date.getMonth() === today.getMonth() &&
+      date.getDate() === today.getDate();
+
+    // If it's today, then we show a time instead
+    if (onSameDay) {
+      return timeFormat.format(date).toLowerCase();
+    } else {
+      return dateFormat.format(date);
+    }
   }
 
   private unfocus() {

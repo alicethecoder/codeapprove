@@ -152,7 +152,7 @@ export function bot(options: ApplicationFunctionOptions) {
     const reviewsRef = collectionRef<Review>(db, reviewsPath({ owner, repo }));
     const q = reviewsRef
       .where("metadata.base.label", "==", label)
-      .where("state.status.closed", "==", false);
+      .where("state.closed", "==", false);
 
     const reviews = (await q.get()).docs.map((d) => d.data());
     for (const review of reviews) {

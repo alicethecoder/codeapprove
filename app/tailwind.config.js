@@ -1,15 +1,15 @@
 module.exports = {
   important: false,
+  purge: {
+    enabled: process.env.NODE_ENV === "production",
+    content: ["./src/*.vue", "./components/**/*.vue"]
+  },
   theme: {
-    // fontFamily: {
-    //   display: ['Gilroy', 'sans-serif'],
-    //   body: ['Graphik', 'sans-serif'],
-    // },
-    // extend: {
-    //   colors: {
-    //     cyan: '#9cdbff',
-    //   },
-    // }
+    fontFamily: {
+      // TODO(polish): Probably make these fall back on the standards: https://tailwindcss.com/docs/font-family#app
+      display: ["Rubik", "sans-serif"],
+      body: ["Roboto", "sans-serif"]
+    },
     extend: {
       colors: {
         dark: {

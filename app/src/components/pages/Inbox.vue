@@ -16,8 +16,9 @@
     <div v-else>
       <div class="grid grid-cols-3 gap-3">
         <div class="col-span-2">
+          <!-- Inbox -->
           <div class="mt-8">
-            <h2 class="font-bold text-2xl mb-2">Incoming</h2>
+            <h2 class="font-bold text-xl mb-2">Incoming</h2>
             <p v-if="inbox.length === 0" class="text-lg">
               No code to review ... snack time!
             </p>
@@ -29,10 +30,11 @@
             />
           </div>
 
+          <!-- Outbox -->
           <div class="mt-8">
-            <h2 class="font-bold text-2xl mb-2">Outgoing</h2>
+            <h2 class="font-bold text-xl mb-2">Outgoing</h2>
             <p v-if="outbox.length === 0" class="text-lg">
-              There's nothing here ... time to write some more code!
+              You have no open PRs ... time to write some more code!
             </p>
             <InboxItem
               v-else
@@ -41,10 +43,24 @@
               :key="itemKey(item)"
             />
           </div>
+
+          <!-- Finished -->
+          <div class="mt-8">
+            <h2 class="font-bold text-xl mb-2">Completed</h2>
+            <p v-if="finished.length === 0" class="text-lg">
+              There's nothing here ... time to get shipping!
+            </p>
+            <InboxItem
+              v-else
+              v-for="item in finished"
+              :item="item"
+              :key="itemKey(item)"
+            />
+          </div>
         </div>
         <div class="col-span-1 pl-8">
-          <h2 class="font-bold text-2xl mb-2 mt-8">
-            Repos ({{ installation.repositories.length }})
+          <h2 class="font-bold text-xl mb-2 mt-8">
+            Connected Repos ({{ installation.repositories.length }})
             <a :href="installation.installation.url" target="_blank"
               ><font-awesome-icon icon="cog" class="text-lg ml-2"
             /></a>
@@ -56,7 +72,9 @@
               <li
                 v-for="repo in installation.repositories"
                 :key="repo.full_name"
+                class="pb-1"
               >
+                <font-awesome-icon :icon="['fab', 'github']" class="mr-2" />
                 <span class="text-lg">{{ repo.full_name }}</span>
               </li>
             </ul>
@@ -75,14 +93,17 @@ import InboxItem from "@/components/elements/InboxItem.vue";
 
 import AuthModule from "../../store/modules/auth";
 import UIModule from "../../store/modules/ui";
+import InboxModule from "../../store/modules/inbox";
 
 import { config } from "../../plugins/config";
-import { InboxItemData, Status, itemSlug } from "../../model/inbox";
+import { itemSlug } from "../../model/inbox";
+import { firestore } from "../../plugins/firebase";
 import {
   Github,
   PullRequestNode,
   InstallationStatus
-} from "../../plugins/github";
+} from "../../../../shared/github";
+import { Review } from "../../../../shared/types";
 
 @Component({
   components: {
@@ -90,35 +111,41 @@ import {
   }
 })
 export default class Inbox extends Vue {
-  public installation: InstallationStatus = {
-    installed: false
-  };
-
-  public inbox: InboxItemData[] = [];
-  public outbox: InboxItemData[] = [];
-
   private authModule = getModule(AuthModule, this.$store);
   private uiModule = getModule(UIModule, this.$store);
+  private inboxModule = getModule(InboxModule, this.$store);
 
-  private github: Github = new Github(this.authModule);
+  private github: Github = new Github(
+    AuthModule.getDelegate(this.authModule),
+    config.github
+  );
 
   async mounted() {
     this.uiModule.beginLoading();
 
-    this.installation = await this.github.getInstallations();
-    if (!this.installation.installed) {
-      this.uiModule.endLoading();
-      return;
-    }
-
     const login = this.authModule.assertUser.username;
-    const assigned = await this.github.getAssignedPulls(login);
-    const outgoing = await this.github.getOutgoingPulls(login);
-
-    this.inbox = assigned.map(this.nodeToItem);
-    this.outbox = outgoing.map(this.nodeToItem);
+    await this.inboxModule.initialize({
+      github: this.github,
+      login
+    });
 
     this.uiModule.endLoading();
+  }
+
+  get installation() {
+    return this.inboxModule.installation;
+  }
+
+  get inbox() {
+    return this.inboxModule.inbox;
+  }
+
+  get outbox() {
+    return this.inboxModule.outbox;
+  }
+
+  get finished() {
+    return this.inboxModule.finished;
   }
 
   get loaded() {
@@ -129,21 +156,8 @@ export default class Inbox extends Vue {
     return config.github.app_url + "/installations/new";
   }
 
-  public itemKey(item: InboxItemData) {
-    return itemSlug(item);
-  }
-
-  private nodeToItem(p: PullRequestNode): InboxItemData {
-    // TODO: This is not right
-    const status = p.closed ? "merged" : "pending";
-    return {
-      status,
-      owner: p.repository.owner.login,
-      repo: p.repository.name,
-      number: `${p.number}`,
-      title: p.title,
-      updated: new Date(p.updatedAt).getTime()
-    };
+  public itemKey(review: Review) {
+    return itemSlug(review);
   }
 }
 </script>

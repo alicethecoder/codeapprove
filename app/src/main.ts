@@ -11,6 +11,11 @@ import "./assets/styles/index.css";
 // Store
 import store from "@/store";
 
+// Cookies
+// https://github.com/cmp-cc/vue-cookie
+import VueCookies from "vue-cookies";
+Vue.use(VueCookies);
+
 // Router
 import router from "@/plugins/router";
 

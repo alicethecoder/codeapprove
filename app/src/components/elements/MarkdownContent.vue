@@ -64,45 +64,47 @@ export default class MarkdownContent extends Vue {
   @apply mb-3;
 }
 
+.md >>> p:last-of-type {
+  @apply mb-0;
+}
+
 .md >>> pre {
   @apply mb-3 p-2 bg-dark-4;
 }
 
 /** Based on https://www.w3schools.com/tags/tag_hn.asp */
 
+.md >>> h1,
+.md >>> h2,
+.md >>> h3,
+.md >>> h4,
+.md >>> h5,
+.md >>> h6 {
+  @apply font-bold font-body mb-2;
+  line-height: 1.2;
+}
+
 .md >>> h1 {
   font-size: 2em;
-  font-weight: bold;
-  @apply mb-4;
 }
 
 .md >>> h2 {
   font-size: 1.5em;
-  font-weight: bold;
-  @apply mb-3;
 }
 
 .md >>> h3 {
   font-size: 1.17em;
-  font-weight: bold;
-  @apply mb-3;
 }
 
 .md >>> h4 {
   font-size: 1em;
-  font-weight: bold;
-  @apply mb-3;
 }
 
 .md >>> h5 {
   font-size: 0.83em;
-  font-weight: bold;
-  @apply mb-3;
 }
 
 .md >>> h6 {
   font-size: 0.67em;
-  font-weight: boled;
-  @apply mb-3;
 }
 </style>

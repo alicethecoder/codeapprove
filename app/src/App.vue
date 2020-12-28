@@ -7,8 +7,13 @@
     </div>
 
     <!-- Page body from router -->
-    <div class="grid grid-cols-12">
+    <div id="body" class="grid grid-cols-12">
       <router-view :key="$route.fullPath" :class="bodyClasses" />
+    </div>
+
+    <!-- Footer -->
+    <div class="w-full">
+      <FooterBar />
     </div>
 
     <!-- Errors -->
@@ -19,12 +24,13 @@
 <script lang="ts">
 import { Component, Vue, Prop } from "vue-property-decorator";
 import { getModule } from "vuex-module-decorators";
-
 import HeaderBar from "@/components/elements/HeaderBar.vue";
+import FooterBar from "@/components/elements/FooterBar.vue";
 import ProgressBar from "@/components/elements/ProgressBar.vue";
 import MessageStack from "@/components/elements/MessageStack.vue";
 
-import { auth, remoteConfig } from "./plugins/firebase";
+import firebase from "firebase/app";
+import { analytics, auth, remoteConfig } from "./plugins/firebase";
 import { config } from "./plugins/config";
 import * as events from "./plugins/events";
 
@@ -34,6 +40,7 @@ import UIModule from "./store/modules/ui";
 @Component({
   components: {
     HeaderBar,
+    FooterBar,
     ProgressBar,
     MessageStack
   }
@@ -45,6 +52,10 @@ export default class App extends Vue {
   authUnsub?: firebase.Unsubscribe = undefined;
 
   created() {
+    // Initialize Firebase Analytics (built-in events)
+    analytics();
+
+    // TODO(polish): This should be in the auth module itself
     this.authUnsub = auth().onAuthStateChanged(user => {
       if (!user) {
         this.authModule.setUser(null);
@@ -86,22 +97,40 @@ export default class App extends Vue {
 </script>
 
 <style lang="postcss">
-@import url("https://fonts.googleapis.com/css2?family=Lato&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Rubik&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto&display=swap");
 
 body {
   @apply text-wht-brt bg-dark-1;
 }
 
 #app {
-  font-family: "Lato", Helvetica, Arial, sans-serif;
+  @apply font-body;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  padding-bottom: 100px;
+}
+
+#body {
+  min-height: 100vh;
 }
 
 .btn:focus {
   outline: none;
 }
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  @apply font-display;
+}
+
+/* pre,
+code {
+  @apply font-code;
+} */
 
 textarea:focus,
 input:focus {
@@ -109,9 +138,9 @@ input:focus {
   outline: none;
 }
 
-// TODO: This should be a postcss extension
+/* TODO(polish): This should be a postcss extension */
 .dark-shadow {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
 }
 
 .btn {
@@ -121,7 +150,6 @@ input:focus {
 }
 
 .btn-small {
-  /** TODO: This should be applied to all icon buttons! */
   @apply flex flex-row items-center;
   @apply text-sm;
   @apply px-2;
@@ -131,15 +159,15 @@ input:focus {
 
 .btn-cta {
   @apply font-bold;
-  @apply rounded border-2;
   @apply flex flex-row items-center;
-  @apply text-2xl;
+  @apply rounded border-2;
+  @apply text-xl;
   @apply px-2 py-1;
 }
 
 @screen lg {
   .btn-cta {
-    @apply text-3xl;
+    @apply text-2xl;
     @apply px-4 py-2;
   }
 }
@@ -147,7 +175,7 @@ input:focus {
 @screen xl {
   .btn-cta {
     @apply rounded-lg border-4;
-    @apply text-4xl;
+    @apply text-3xl;
     @apply px-6 py-3;
   }
 }
@@ -162,6 +190,14 @@ input:focus {
 
 .btn-blue:hover {
   @apply border-blue-400 text-blue-400;
+}
+
+.btn-yellow {
+  @apply border-yellow-400 text-yellow-400;
+}
+
+.btn-yellow:hover {
+  @apply border-yellow-300 text-yellow-300;
 }
 
 .btn-red {

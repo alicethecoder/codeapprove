@@ -4,7 +4,7 @@
     class="flex items-center dark-shadow text-purple-300 font-bold py-4 px-8 bg-dark-2"
   >
     <font-awesome-icon icon="code-branch" size="lg" class="mr-4" />
-    <router-link to="/"><span class="text-xl">CodeApprove</span></router-link>
+    <router-link to="/"><h1 class="text-xl">CodeApprove</h1></router-link>
 
     <span class="flex-grow"><!-- spacer --></span>
 
@@ -12,8 +12,8 @@
       ><span class="text-md">Sign In</span>
     </router-link>
 
-    <div v-if="signedIn" @click="showDropdown = true">
-      <div class="flex items-center">
+    <div v-if="signedIn">
+      <div class="flex items-center" @click="showDropdown = true">
         <img class="avatar" :src="photoURL" />
         <font-awesome-icon icon="caret-down" class="ml-2 text-wht-brt" />
       </div>
@@ -21,7 +21,7 @@
       <ul
         v-if="showDropdown"
         v-click-outside="() => (showDropdown = false)"
-        class="dropdown absolute mt-2 rounded dark-shadow border border-dark-0 bg-dark-3 rounded whitespace-no-wrap text-md text-white-brt"
+        class="dropdown absolute mt-2 rounded dark-shadow border border-dark-0 bg-dark-3 whitespace-no-wrap text-md text-white-brt"
       >
         <li class="block px-4 py-2 text-wht-brt">{{ username }}</li>
         <li class="block px-4 py-2 dropdown-item" @click="toInbox()">

@@ -4,5 +4,27 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if request.auth.uid == uid;
     }
+
+    // Allow for collectionGroup queries
+    match /{path=**}/reviews/{review} {
+      allow read: if request.auth != null;
+    }
+
+    match /orgs/{org} {
+      match /repos/{repo} {
+        match /reviews/{review} {
+          // TODO(stop): Much tighter rules
+          allow read, write: if request.auth.uid != null;
+
+          match /threads/{thread} {
+            allow read, write: if request.auth.uid != null;
+          }
+
+          match /comments/{comment} {
+            allow read, write: if request.auth.uid != null;
+          }
+        }
+      }
+    }
   }
 }

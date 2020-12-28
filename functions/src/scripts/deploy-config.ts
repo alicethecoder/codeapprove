@@ -15,7 +15,7 @@ function flatten(obj: any, prefix: string[] = [], current: any = {}) {
 }
 
 async function main() {
-  // TODO: Allow switching projects
+  // TODO(stop): Finish this script, allow switching projects
   const project = "codeapprove-dev";
   const configSource = require("../../.runtimeconfig.json");
   const flatConfig = flatten(configSource);

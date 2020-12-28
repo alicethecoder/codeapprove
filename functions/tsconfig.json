@@ -5,7 +5,8 @@
     "module": "commonjs",
     "lib": [
       "es2015",
-      "es2017"
+      "es2017",
+      "dom"
     ],
     "allowJs": true,
     "checkJs": true,
@@ -21,6 +22,7 @@
   },
   "compileOnSave": true,
   "include": [
-    "src"
+    "src",
+    "../shared"
   ],
 }

@@ -26,14 +26,10 @@
       <CommentThread
         v-if="showComments('left')"
         class="w-full"
-        :side="'left'"
         :line="rendered.left.number"
-        :content="rendered.left.content"
+        :sha="getThreadSha('left')"
         :threadId="getThreadId('left')"
-        @cancel="
-          drafting.left = false;
-          hovered.left = false;
-        "
+        @cancel="onCommentCancel('left')"
       />
     </div>
 
@@ -61,14 +57,10 @@
       <CommentThread
         v-if="showComments('right')"
         class="w-full"
-        :side="'right'"
         :line="rendered.right.number"
-        :content="rendered.right.content"
+        :sha="getThreadSha('right')"
         :threadId="getThreadId('right')"
-        @cancel="
-          drafting.right = false;
-          hovered.right = false;
-        "
+        @cancel="onCommentCancel('right')"
       />
     </div>
   </div>
@@ -82,22 +74,15 @@ import parseDiff from "parse-diff";
 import CommentThread from "@/components/elements/CommentThread.vue";
 import { EventEnhancer } from "../mixins/EventEnhancer";
 import ReviewModule from "../../store/modules/review";
-import {
-  Comment,
-  ThreadArgs,
-  Thread,
-  ThreadPair,
-  LangPair
-} from "../../model/review";
+import { ThreadPair, LangPair, SidePair } from "../../model/review";
+import { Comment, Thread, Side } from "../../../../shared/types";
 import {
   RenderedChangePair,
   renderChange,
   RenderedChange
 } from "../../plugins/diff";
-import { AddCommentEvent } from "../../plugins/events";
+import * as events from "../../plugins/events";
 import { DiffLineAPI } from "../api";
-
-type Side = "left" | "right";
 
 @Component({
   components: {
@@ -112,17 +97,17 @@ export default class DiffLine extends Mixins(EventEnhancer)
 
   reviewModule = getModule(ReviewModule, this.$store);
 
-  public comments: { [s in Side]: Comment[] } = {
+  public comments: SidePair<Comment[]> = {
     left: [],
     right: []
   };
 
-  public hovered: { [s in Side]: boolean } = {
+  public hovered: SidePair<boolean> = {
     left: false,
     right: false
   };
 
-  public drafting: { [s in Side]: boolean } = {
+  public drafting: SidePair<boolean> = {
     left: false,
     right: false
   };
@@ -130,12 +115,31 @@ export default class DiffLine extends Mixins(EventEnhancer)
   public active = false;
 
   mounted() {
+    events.on(events.NEW_THREAD_EVENT, this.onNewThread);
     this.loadComments();
   }
 
-  public handleEvent(e: Partial<AddCommentEvent>) {
+  destroyed() {
+    events.off(events.NEW_THREAD_EVENT, this.onNewThread);
+  }
+
+  private onNewThread(event: events.NewThreadEvent) {
+    const matchesLeft = this.getThreadId("left") === event.threadId;
+    const matchesRight = this.getThreadId("right") === event.threadId;
+
+    if (matchesLeft || matchesRight) {
+      console.log(`onNewThread: matches ${event.threadId}`);
+      this.loadThreads();
+      this.loadComments();
+    }
+  }
+
+  public handleEvent(e: Partial<events.AddCommentEvent>) {
     console.log("DiffLine#handleEvent");
-    e.lineContent = this.rendered[e.side!].content;
+    const base = this.reviewModule.viewState.base;
+    const side: Side = e.sha === base ? "left" : "right";
+    e.side = side;
+    e.lineContent = this.rendered[side].content;
     this.bubbleUp(e);
   }
 
@@ -164,6 +168,25 @@ export default class DiffLine extends Mixins(EventEnhancer)
     }
   }
 
+  public onCommentCancel(side: Side) {
+    this.hovered[side] = false;
+    this.drafting[side] = false;
+  }
+
+  public loadThreads() {
+    const leftId = this.getThreadId("left");
+    if (leftId !== null) {
+      this.threads.left = this.reviewModule.threadById(leftId);
+      this.drafting.left = false;
+    }
+
+    const rightId = this.getThreadId("right");
+    if (rightId !== null) {
+      this.threads.right = this.reviewModule.threadById(rightId);
+      this.drafting.right = false;
+    }
+  }
+
   public loadComments() {
     this.comments = {
       left: this.getComments("left"),
@@ -177,6 +200,11 @@ export default class DiffLine extends Mixins(EventEnhancer)
 
   public showCommentButton(side: Side) {
     if (!this.rendered.commentsEnabled) {
+      return false;
+    }
+
+    // For 'normal' lines the comment must always be left on the right side.
+    if (side === "left" && this.rendered.left.type === "normal") {
       return false;
     }
 
@@ -195,23 +223,29 @@ export default class DiffLine extends Mixins(EventEnhancer)
     return [];
   }
 
+  public getThreadSha(side: Side): string {
+    if (side === "left") {
+      return this.reviewModule.viewState.base;
+    } else {
+      return this.reviewModule.viewState.head;
+    }
+  }
+
   public getThreadId(side: Side): string | null {
-    // TODO: Seriously need to optimize this!  Should be calculated inside out
     const thread = this.threads[side];
     return thread === null ? null : thread.id;
   }
 
   public bgClass(change: RenderedChange): string {
     if (!this.rendered.commentsEnabled) {
-      // TODO: This color is meh
-      return "bg-indigo-900";
+      return "bg-gray-500";
     }
 
     switch (change.type) {
       case "del":
-        return "bg-red-700";
+        return "bg-red-500";
       case "add":
-        return "bg-green-700";
+        return "bg-green-500";
       default:
         return "hidden";
     }
@@ -244,7 +278,7 @@ code {
   height: 100%;
   z-index: 2;
 
-  opacity: 0.15;
+  opacity: 0.1;
 }
 
 .ib {

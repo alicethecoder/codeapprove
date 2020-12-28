@@ -1,3 +1,3 @@
 export function freezeArray<T>(arr: T[]): T[] {
-  return arr.map(t => Object.freeze(t));
+  return arr.map((t) => Object.freeze(t));
 }

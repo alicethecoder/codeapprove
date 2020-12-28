@@ -1,70 +1,65 @@
 <template>
-  <!-- TODO: Some of these classes should be outside -->
-  <div
-    class="flex items-center bg-dark-3 px-4 py-2 mb-4 border-dark-0 shadow dark-shadow rounded"
+  <router-link
+    :to="
+      `/pr/${item.metadata.owner}/${item.metadata.repo}/${item.metadata.number}`
+    "
   >
-    <router-link :to="`/pr/${item.owner}/${item.repo}/${item.number}`">
+    <!-- TODO(polish): Some of these classes should be outside -->
+    <div
+      class="flex items-center bg-dark-3 px-4 py-2 mb-4 border-dark-0 shadow dark-shadow rounded"
+    >
+      <!-- TODO(polish): Could use JS to keep these columns the same width dynamically instead of w-1/3 -->
       <span
-        :class="statusTextColor(item.status)"
-        class="text-lg font-bold mr-4"
+        :class="statusClass(item.state.status).text"
+        class="w-1/3 text-lg font-bold mr-4"
       >
-        <font-awesome-icon :icon="statusIcon(item.status)" class="mr-2" />
+        <font-awesome-icon
+          :icon="statusIconName(item.state.status)"
+          class="mr-2"
+        />
         <span class="text-lg">{{ itemText(item) }}</span>
       </span>
-      <span class="text-lg mr-2">{{ item.title }}</span>
-    </router-link>
-    <span class="flex-grow"><!-- spacer --></span>
-    <span class="text-md"
-      ><font-awesome-icon icon="history" class="mr-1" />{{
-        renderTime(item.updated)
-      }}</span
-    >
-  </div>
+      <span class="text-lg mr-2">{{ item.metadata.title }}</span>
+      <span class="flex-grow"><!-- spacer --></span>
+      <span class="text-md">
+        {{ renderTime(item.metadata.updated_at) }}
+        <font-awesome-icon icon="history" class="ml-1" />
+      </span>
+    </div>
+  </router-link>
 </template>
 
 <script lang="ts">
 import { Component, Vue, Prop } from "vue-property-decorator";
-import { InboxItemData, Status, itemSlug } from "../../model/inbox";
+import { itemSlug } from "../../model/inbox";
+
+import { Review, ReviewStatus } from "../../../../shared/types";
+import * as typeUtils from "../../../../shared/typeUtils";
 
 @Component({
   components: {}
 })
 export default class InboxItem extends Vue {
-  @Prop() public item!: InboxItemData;
+  @Prop() public item!: Review;
 
   async mounted() {}
 
-  public itemText(item: InboxItemData) {
+  public itemText(item: Review) {
     return itemSlug(item);
   }
 
-  public statusTextColor(status: Status) {
-    switch (status) {
-      case "approved":
-        return "text-green-400";
-      case "pending":
-        return "text-yellow-400";
-      case "merged":
-        return "text-blue-500";
-    }
+  public statusClass(status: ReviewStatus) {
+    return typeUtils.statusClass(status);
   }
 
-  public statusIcon(status: Status) {
-    switch (status) {
-      case "approved":
-        return "check";
-      case "pending":
-        return "pause-circle";
-      case "merged":
-        return "code-branch";
-    }
+  public statusIconName(status: ReviewStatus) {
+    return typeUtils.statusIconName(status);
   }
 
   public renderTime(time: number) {
     const d = new Date(time);
     const now = new Date();
 
-    // TODO: Make these all consts
     const locale = navigator.language || "en";
     const dateTimeFormat = new Intl.DateTimeFormat(locale, {
       month: "short",
@@ -78,7 +73,12 @@ export default class InboxItem extends Vue {
       minute: "numeric"
     });
 
-    if (now.getTime() - d.getTime() < 24 * 60 * 60 * 1000) {
+    const onSameDay =
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+
+    if (onSameDay) {
       return timeFormat.format(d);
     } else {
       return dateTimeFormat.format(d);

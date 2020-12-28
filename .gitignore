@@ -12,6 +12,9 @@ yarn-debug.log*
 yarn-error.log*
 *-debug.log*
 
+# Emulators
+emulator-data
+
 # Built files
 app/dist
 

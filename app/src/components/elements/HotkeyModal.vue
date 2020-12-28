@@ -11,9 +11,8 @@
       <tbody>
         <tr v-for="key in Object.keys(map)" :key="key">
           <td class="p-1">
-            <div class="key">
-              <!-- TODO: Maybe render separate keys -->
-              <code>{{ renderKey(key) }}</code>
+            <div class="key mr-1" v-for="s in splitKey(key)" :key="s">
+              <code>{{ s }}</code>
             </div>
           </td>
           <td class="pl-4">
@@ -28,6 +27,7 @@
 <script lang="ts">
 import { Component, Vue, Prop } from "vue-property-decorator";
 import { KeyDescMap } from "../../plugins/hotkeys";
+import * as cookies from "../../plugins/cookies";
 
 @Component
 export default class HotkeyModal extends Vue {
@@ -44,13 +44,12 @@ export default class HotkeyModal extends Vue {
     };
   }
 
-  public renderKey(key: string) {
-    let res = key.toUpperCase();
-    res = res.split("+").join(" + ");
-    return res;
+  public splitKey(key: string) {
+    return key.split("+").map(k => k.toUpperCase());
   }
 
   private onShow() {
+    this.$cookies.set(cookies.HOTKEY_MODAL_SHOWN, "true");
     this.show = true;
   }
 

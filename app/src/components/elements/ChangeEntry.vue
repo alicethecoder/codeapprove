@@ -1,7 +1,7 @@
 <template>
   <div
     :class="{ active: active }"
-    class="rounded overflow-hidden my-2 dark-shadow border border-dark-0"
+    class="rounded overflow-hidden my-2 shadow dark-shadow border border-dark-0"
   >
     <!-- Bind hotkeys when active -->
     <div v-if="active && expanded" v-hotkey="hotKeyMap" />
@@ -12,17 +12,21 @@
       class="flex p-2 font-bold items-center bg-dark-3 border-b border-dark-0"
     >
       <font-awesome-icon fixed-width :icon="icon" />
-      <!-- TODO: Show both file names when it's renamed -->
       <span class="ml-2 text-wht-med">{{ title }}</span>
-      <span class="text-sm text-purple-300 ml-4" v-if="allThreads.length > 0">
-        {{ allThreads.length }}
+      <span
+        class="text-sm text-purple-300 ml-4"
+        v-if="countUnresolvedThreads > 0"
+      >
+        {{ countUnresolvedThreads }}
         <font-awesome-icon icon="comment" size="sm" />
       </span>
       <span class="flex-grow"><!-- spacer --></span>
-      <span class="text-right text-sm text-white-md mr-2">{{
-        meta.additions + meta.deletions
-      }}</span>
+      <span class="text-right text-sm text-white-md mr-2">
+        <span v-if="isBinary">binary</span>
+        <span v-else>{{ meta.additions + meta.deletions }}</span>
+      </span>
       <div
+        v-if="!isBinary"
         class="w-12 rounded overflow-hidden"
         style="line-height: 12px; height: 12px;"
       >
@@ -39,9 +43,7 @@
 
     <!-- Placeholder while loading -->
     <div v-if="loading" class="text-lg text-center bg-dark-2 text-brt-dim p-4">
-      <span v-if="tooBig"
-        >This diff is too large to render, please view it locally.</span
-      >
+      <span v-if="!canExpand">{{ cantExpandMessage }}</span>
       <span v-else>Loading...</span>
     </div>
 
@@ -49,7 +51,7 @@
     <div
       v-else-if="loaded || expanded"
       v-show="expanded"
-      class="bg-dark-4 overflow-hidden"
+      class="bg-dark-2 overflow-hidden"
     >
       <template v-for="({ chunk, pairs }, i) in chunks">
         <ChunkHeaderBar
@@ -87,18 +89,14 @@ import DiffLine from "@/components/elements/DiffLine.vue";
 import ChunkHeaderBar from "@/components/elements/ChunkHeaderBar.vue";
 import AuthModule from "../../store/modules/auth";
 import ReviewModule from "../../store/modules/review";
-import { Github } from "../../plugins/github";
 import { AddCommentEvent } from "../../plugins/events";
 import { nextRender, makeTopVisible } from "../../plugins/dom";
 import { getFileLang } from "../../plugins/prism";
 
-import {
-  ThreadArgs,
-  Thread,
-  Side,
-  ThreadPair,
-  ThreadContentArgs
-} from "../../model/review";
+import { Github } from "../../../../shared/github";
+
+import { ThreadPair } from "../../model/review";
+import { Thread, ThreadArgs, Side } from "../../../../shared/types";
 import {
   ChangePair,
   RenderedChangePair,
@@ -108,7 +106,9 @@ import {
   renderLoadedLineChange
 } from "../../plugins/diff";
 import { KeyMap, CHANGE_ENTRY_KEY_MAP } from "../../plugins/hotkeys";
-import { freezeArray } from "../../plugins/freeze";
+import { freezeArray } from "../../../../shared/freeze";
+import { isBinaryFile } from "../../plugins/binary";
+import { config } from "../../plugins/config";
 
 @Component({
   components: {
@@ -130,19 +130,26 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
 
   private authModule = getModule(AuthModule, this.$store);
   private reviewModule = getModule(ReviewModule, this.$store);
-  private github: Github = new Github(this.authModule);
+  private github: Github = new Github(
+    AuthModule.getDelegate(this.authModule),
+    config.github
+  );
 
   public getThreads(pair: RenderedChangePair): ThreadPair {
     const leftArgs: ThreadArgs = {
-      side: "left",
+      sha: this.reviewModule.viewState.base,
       file: this.meta.from,
-      line: pair.left.number
+      side: "left",
+      line: pair.left.number,
+      lineContent: pair.left.content
     };
 
     const rightArgs: ThreadArgs = {
-      side: "right",
+      sha: this.reviewModule.viewState.head,
       file: this.meta.to,
-      line: pair.right.number
+      side: "right",
+      line: pair.right.number,
+      lineContent: pair.right.content
     };
 
     return {
@@ -153,20 +160,40 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
 
   public handleEvent(e: Partial<AddCommentEvent>) {
     console.log("ChangeEntry#handleEvent");
-    const file = e.side === "left" ? this.meta.from : this.meta.to;
-    e.file = file;
+    const base = this.reviewModule.viewState.base;
+    e.file = e.sha === base ? this.meta.from : this.meta.to;
     this.bubbleUp(e);
   }
 
-  get tooBig() {
+  get tooBig(): boolean {
     return this.meta.additions + this.meta.deletions >= 1500;
+  }
+
+  get isBinary(): boolean {
+    return isBinaryFile(this.meta.from) || isBinaryFile(this.meta.to);
+  }
+
+  get canExpand(): boolean {
+    return !(this.tooBig || this.isBinary);
+  }
+
+  get cantExpandMessage(): string {
+    if (this.tooBig) {
+      return "This diff is too large to render, please view it locally.";
+    }
+
+    if (this.isBinary) {
+      return "Binary file.";
+    }
+
+    return "";
   }
 
   get hotKeyMap(): KeyMap {
     return CHANGE_ENTRY_KEY_MAP(this);
   }
 
-  // TODO: When we can expand between chunks this will be a problem
+  // TODO(stop): When we can expand between chunks this will be a problem
   get totalLength(): number {
     let totalLength = 0;
     this.chunks.forEach(c => (totalLength += c.pairs.length));
@@ -201,14 +228,14 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
       return;
     }
 
-    // Change is too large to display, so just infinite-load
-    if (this.tooBig) {
+    // Change cannot be expanded (too big, binary, etc), so just infinite-load
+    if (!this.canExpand) {
       this.loading = true;
       this.expanded = true;
       return;
     }
 
-    // TODO: Add some benchmarking here!
+    // TODO(polish): Add some benchmarking here!
     const isLarge = this.totalLength >= 50;
 
     if (!isLarge) {
@@ -247,7 +274,7 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
 
   public prevLine() {
     this.setActiveDiffLine(Math.max(this.activeLineIndex - 1, 0));
-    // TODO: When scrolling up we don't properly account for the header
+    // TODO(polish): When scrolling up we don't properly account for the header
     makeTopVisible(this.getCurrentLine()!.$el, 150);
   }
 
@@ -292,8 +319,8 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
     const owner = this.reviewModule.review.metadata.owner;
     const repo = this.reviewModule.review.metadata.repo;
 
-    const leftSha = this.reviewModule.reviewState.base;
-    const rightSha = this.reviewModule.reviewState.head;
+    const leftSha = this.reviewModule.viewState.base;
+    const rightSha = this.reviewModule.viewState.head;
 
     const prevChunk = this.getPrevChunk(index);
     const prevLeftEnd = prevChunk.oldStart + prevChunk.oldLines - 1;
@@ -321,7 +348,7 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
       rightEnd
     );
 
-    // TODO: Handle zipping lines of different lengths
+    // TODO(polish): Handle zipping lines of different lengths
     if (leftLines.length != rightLines.length) {
       console.warn("loadLinesAbove: uneven zip");
     }
@@ -357,10 +384,21 @@ export default class ChangeEntry extends Mixins(EventEnhancer)
   }
 
   get allThreads() {
-    const l: Thread[] = this.reviewModule.threadsByFile(this.meta.from, "left");
-    const r: Thread[] = this.reviewModule.threadsByFile(this.meta.to, "right");
+    const left: Thread[] = this.reviewModule.threadsByFile(this.meta.from);
+    const right: Thread[] = this.reviewModule.threadsByFile(this.meta.to);
 
-    return [...l, ...r];
+    const all = [...left];
+    for (const thread of right) {
+      if (!all.find(x => thread.id === x.id)) {
+        all.push(thread);
+      }
+    }
+
+    return all;
+  }
+
+  get countUnresolvedThreads() {
+    return this.allThreads.filter(t => !t.draft && !t.resolved).length;
   }
 
   get additionPct() {

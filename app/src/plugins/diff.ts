@@ -1,7 +1,8 @@
 import * as parseDiff from "parse-diff";
-import { freezeArray } from "./freeze";
 
-type Side = "left" | "right";
+import { freezeArray } from "../../../shared/freeze";
+import { Side } from "../../../shared/types";
+import { SidePair } from "../model/review";
 
 export interface FileMetadata {
   from: string;
@@ -18,26 +19,15 @@ export interface RenderedChange {
   content: string;
 }
 
-export interface RenderedChangePair {
-  left: RenderedChange;
-  right: RenderedChange;
+export interface RenderedChangePair extends SidePair<RenderedChange> {
   commentsEnabled: boolean;
 }
 
-export interface ChangePair {
-  left?: parseDiff.Change;
-  right?: parseDiff.Change;
-}
+export interface ChangePair extends SidePair<parseDiff.Change | undefined> {}
 
 export interface ChunkHeader {
-  start: {
-    left: number;
-    right: number;
-  };
-  length: {
-    left: number;
-    right: number;
-  };
+  start: SidePair<number>;
+  length: SidePair<number>;
 }
 
 export interface ChunkData {
@@ -45,12 +35,10 @@ export interface ChunkData {
   pairs: RenderedChangePair[];
 }
 
-export interface PullRequestChanges {
-  changes: {
-    file: parseDiff.File;
-    metadata: FileMetadata;
-    data: ChunkData[];
-  }[];
+export interface PullRequestChange {
+  file: parseDiff.File;
+  metadata: FileMetadata;
+  data: ChunkData[];
 }
 
 export const EMPTY_CHUNK: parseDiff.Chunk = {
@@ -208,7 +196,7 @@ export function renderChange(
   change: parseDiff.Change | undefined,
   side: Side
 ): RenderedChange {
-  // TODO: Drop this block and remove optional
+  // TODO(polish): Drop this block and remove optional
   if (!change) {
     return EMPTY_RENDERED;
   }
@@ -234,8 +222,7 @@ export function changeLineMarker(change: parseDiff.Change): string {
 }
 
 export function changeContent(change: parseDiff.Change): string {
-  // Remove the + or the - from the start
-  // TODO: Why is this the case for "normal" lines
+  // Remove the '+', '-', or ' ' from the start of the line
   return change.content.substring(1);
 }
 
@@ -246,7 +233,7 @@ export function changeLineNumber(change: parseDiff.Change, side: Side): number {
     case "del":
       return change.ln;
     case "normal":
-      if (side == "left") {
+      if (side === "left") {
         return change.ln1;
       } else {
         return change.ln2;
